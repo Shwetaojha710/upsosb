@@ -1,0 +1,35 @@
+{
+  "name": "upsosb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sever.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parse": "^0.1.0",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-rate-limiter": "^1.3.1",
+    "file-type": "^16.5.4",
+    "formidable": "^3.5.2",
+    "fs": "^0.0.1-security",
+    "generate-password": "^1.7.1",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "mime-types": "^2.1.35",
+    "mysql2": "^3.13.0",
+    "nodemon": "^3.1.9",
+    "os": "^0.1.2",
+    "path": "^0.12.7",
+    "sequelize": "^6.37.6",
+    "serialport": "^13.0.0"
+  }
+}
