@@ -8,24 +8,28 @@ const document = sequelize.define("documents", {
     autoIncrement: true,
   },
   image_title:{
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   hn_image_title:{
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true,
       charset: 'utf8mb4',
   collate: 'utf8mb4_unicode_ci'
   },
   image_alt:{
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   hn_image_alt:{
+    type: DataTypes.TEXT,
+    allowNull: true,
+   charset: 'utf8mb4',
+  collate: 'utf8mb4_unicode_ci'
+  },
+  document:{
     type: DataTypes.STRING,
     allowNull: true,
-        charset: 'utf8mb4',
-  collate: 'utf8mb4_unicode_ci'
   },
   order:{
     type: DataTypes.BIGINT,
@@ -37,9 +41,9 @@ const document = sequelize.define("documents", {
     allowNull: true,
   },
   status: {
-    type: DataTypes.ENUM("true", "false"),
-    allowNull: true,
-    defaultValue:"false"
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: 1,
   },
   img_type: {
     type: DataTypes.STRING,

@@ -90,15 +90,19 @@ const managedirectory = sequelize.define("managedirectory", {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    order: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
     created_by: {
         type: DataTypes.BIGINT, 
         allowNull: false,
     },
     status: {
-        type: DataTypes.ENUM('ACTIVE', 'INACTIVE'),
+        type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: 'ACTIVE'
-    }
+        defaultValue: 1,
+      },
 }, {
     tableName: 'managedirectory',
     charset: 'utf8mb4',

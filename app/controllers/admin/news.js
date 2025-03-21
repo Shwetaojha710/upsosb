@@ -10,7 +10,7 @@ const mime = require("mime-types");
 const fileType = require("file-type");
 const log = require("../../models/log");
 const managedirectory = require("../../models/managedirectory");
-const tender = require("../../models/tender");
+const news = require("../../models/news");
 
 async function moveFile(file, baseUploadDir, userId) {
   try {
@@ -75,13 +75,16 @@ const copyFile = async (sourcePath, destFolder, userId) => {
   }
 };
 
-exports.addtender = async (req, res) => {
+exports.addnews = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const form = new formidable.IncomingForm();
     form.parse(req, async (err, fields, files) => {
       if (err)
+      {
+        await transaction.rollback();
         return Helper.response("failed", "Error parsing form", err, res, 200);
+      }
 
       const transformedFields = Object.fromEntries(
         Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
@@ -102,11 +105,29 @@ exports.addtender = async (req, res) => {
       }
       transformedFields["created_by"] = req.users.id;
       transformedFields["createdAt"] = new Date();
-   
+      transformedFields["status"] = "ACTIVE";
+      console.log(transformedFields, "transformfieldss");
 
-    
+      const data = await news.count({
+        where: {
+          hn_heading: transformedFields.hn_heading,
+          heading: transformedFields.heading,
+          hn_title: transformedFields.hn_title,
+          title: transformedFields.title,
+          description: transformedFields.description,
+          hn_description: transformedFields.hn_description,
+        },
+      });
+      let documentdt;
+      if (data) {
+        await transaction.rollback();
+        return Helper.response("failed", "News already exists", null, res, 200);
+      } else {
+        documentdt = await news.create(transformedFields, {
+          transaction,
+        });
+      }
 
-      const documentdt = await tender.create(transformedFields, { transaction });
       const baseUploadDir = `documents`;
       for (const field in files) {
         if (files[field]?.[0]) {
@@ -127,7 +148,7 @@ exports.addtender = async (req, res) => {
         }
       }
 
-      await tender.update(transformedFields, {
+      await news.update(transformedFields, {
         where: { id: documentdt.id },
         transaction,
       });
@@ -135,7 +156,7 @@ exports.addtender = async (req, res) => {
       await transaction.commit();
       return Helper.response(
         "success",
-        "Tender Added successfully",
+        "News Added successfully",
         documentdt,
         res,
         200
@@ -146,26 +167,28 @@ exports.addtender = async (req, res) => {
     await transaction.rollback();
     return Helper.response(
       "failed",
-      error.message || "Something went wrong",
-      {},
+      error?.errors?.[0]?.message || "An unexpected error occurred",
+      { error },
       res,
       200
     );
   }
 };
 
-exports.getenderlist = async (req, res) => {
+exports.genewslist = async (req, res) => {
   try {
     let lang = req.headers?.lang == undefined ? req.headers?.lang : "en";
     const documentdata = (
-      await tender.findAll({
+      await news.findAll({
         attributes: [
           "id",
-          "tender_no",
-          "desc",
-          "bid_sub_start_date",
-          "bid_sub_end_date",
+          "hn_heading",
+          "heading",
+          "hn_title",
+          "title",
           "document",
+          "hn_description",
+          "description",
           "lang",
           "status",
           "createdAt",
@@ -173,7 +196,7 @@ exports.getenderlist = async (req, res) => {
         where: {
           lang: lang,
         },
-        order: [["createdAt", "ASC"]],
+        order: [["createdAt", "desc"]],
       })
     ).map((item) => item.toJSON());
     if (documentdata.length > 0) {
@@ -200,18 +223,25 @@ exports.getenderlist = async (req, res) => {
   }
 };
 
-exports.updatetender = async (req, res) => {
+exports.updatenews = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     new formidable.IncomingForm().parse(req, async (err, fields, files) => {
-      if (err)
+      if (err){
+        await transaction.rollback();
         return Helper.response("failed", "Error parsing form", err, res, 200);
+      }
+       
 
       const transformedFields = Object.fromEntries(
         Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
       );
 
-      const originalData = await tender.findByPk(transformedFields.id);
+      const originalData = await news.findByPk(transformedFields.id);
+      if (!originalData) {
+        await transaction.rollback();
+        return Helper.response("failed", "Users not found!", {}, res, 200);
+      }
 
       const emptyField = Object.entries(transformedFields).find(
         ([_, value]) => !value
@@ -227,14 +257,35 @@ exports.updatetender = async (req, res) => {
         );
       }
 
-      const documentdt = await tender.update(
-        {
-          ...transformedFields,
-          updated_by: req.users.id,
-          createdAt: new Date(),
+      const data = await news.count({
+        where: {
+          id: {
+            [Op.notIn]: Array.isArray(transformedFields.id)
+              ? transformedFields.id
+              : [transformedFields.id],
+          },
+          hn_heading: transformedFields.hn_heading,
+          heading: transformedFields.heading,
+          hn_title: transformedFields.hn_title,
+          title: transformedFields.title,
+          description: transformedFields.description,
+          hn_description: transformedFields.hn_description,
         },
-        { where: { id: transformedFields.id }, transaction }
-      );
+      });
+      let documentdt;
+      if (data) {
+        await transaction.rollback();
+        return Helper.response("failed", "News Already exists", null, res, 200);
+      } else {
+        documentdt = await news.update(
+          {
+            ...transformedFields,
+            updated_by: req.users.id,
+            createdAt: new Date(),
+          },
+          { where: { id: transformedFields.id }, transaction }
+        );
+      }
 
       if (files.type !== "vedio") {
         for (const field in files) {
@@ -251,7 +302,7 @@ exports.updatetender = async (req, res) => {
             transformedFields[field] = path.basename(result.filePath);
           }
         }
-        await tender.update(transformedFields, {
+        await news.update(transformedFields, {
           where: { id: transformedFields.id },
           transaction,
         });
@@ -259,20 +310,20 @@ exports.updatetender = async (req, res) => {
 
       await transaction.commit();
 
-      const updatedData = await tender.findByPk(transformedFields.id);
+      const updatedData = await news.findByPk(transformedFields.id);
       // **Log the update action**
       await log.create({
-        tableName: "document",
+        tableName: "news",
         recordId: transformedFields.id,
         action: "UPDATE",
-        oldData: originalData.toJSON(),
-        newData: updatedData.toJSON(),
+        oldData: originalData?.toJSON(),
+        newData: updatedData?.toJSON(),
         changedBy: req.users.id,
       });
 
       return Helper.response(
         "success",
-        "Document Updated successfully",
+        "News Updated successfully",
         documentdt,
         res,
         200

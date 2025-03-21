@@ -78,46 +78,57 @@ const copyFile = async (sourcePath, destFolder, userId) => {
 };
 
 exports.createmenu = async (req, res) => {
+  const transaction = await sequelize.transaction(); // Start transaction
+
   try {
     let obj = req.body;
     obj.created_by = req.users.id;
+
+    // **Validation Function**
     const validateFields = (data) => {
       for (const key in data) {
         if (typeof data[key] === "string") {
           data[key] = data[key].trim(); // Trim spaces before validation
         }
-
         if (data[key] === "" || data[key] === null || data[key] === undefined) {
           return `Error: ${key} cannot be empty!`;
         }
       }
       return null; // No errors
     };
+
     // **Apply Validation**
     const validationError = validateFields(obj);
     if (validationError) {
-      await transaction.rollback();
+      await transaction.rollback(); // Rollback if validation fails
       return Helper.response("failed", validationError, null, res, 200);
     }
-    const data = await menu.count({
-      where: {
-        name: obj.name,
-        parent_id:obj?.parent_id
-      },
+
+    // **Check If Menu Already Exists**
+    const existingMenu = await menu.count({
+      where: { menu: obj.menu },
+      transaction, // Run inside transaction
     });
-    if (!data) {
-      let createMenu = await menu.create(obj);
+
+    if (!existingMenu) {
+      // **Create Menu**
+      let createMenu = await menu.create(obj, { transaction });
 
       if (createMenu) {
-        await transaction.commit(); // Commit transaction
-        await log.create({
-          tableName: "menu",
-          recordId: createMenu.id,
-          action: "CREATE",
-          oldData: JSON.stringify(obj),
-          newData: JSON.stringify(obj),
-          changedBy: req.users.id,
-        });
+        // **Log Entry**
+        await log.create(
+          {
+            tableName: "menu",
+            recordId: createMenu.id,
+            action: "CREATE",
+            oldData: JSON.stringify(obj),
+            newData: JSON.stringify(obj),
+            changedBy: req.users.id,
+          },
+          { transaction }
+        );
+
+        await transaction.commit(); // Commit transaction if all operations succeed
 
         return Helper.response(
           "success",
@@ -128,13 +139,16 @@ exports.createmenu = async (req, res) => {
         );
       }
     } else {
+      await transaction.rollback(); // Rollback if menu already exists
       return Helper.response("failed", "Menu already exists", null, res, 200);
     }
   } catch (error) {
+    await transaction.rollback(); // Rollback on error
     console.error("Error creating menu:", error);
-    return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
+    return Helper.response("failed", error?.errors?.[0]?.message || "An error occurred", {}, res, 200);
   }
 };
+
 
 exports.menudata = async (req, res) => {
   try {
@@ -205,73 +219,93 @@ exports.menudata = async (req, res) => {
 };
 
 exports.updatemenu = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
   try {
     let obj = req.body;
-    obj.created_by = req.users.id;
+    obj.updated_by = req.users.id;
+
+    // **Validation Function**
     const validateFields = (data) => {
       for (const key in data) {
         if (typeof data[key] === "string") {
-          data[key] = data[key].trim(); // Trim spaces before validation
+          data[key] = data[key].trim(); 
         }
-
         if (data[key] === "" || data[key] === null || data[key] === undefined) {
           return `Error: ${key} cannot be empty!`;
         }
       }
-      return null; // No errors
+      return null;
     };
-    // **Apply Validation**
+
     const validationError = validateFields(obj);
     if (validationError) {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);
     }
-    const data = await menu.count({
+
+    const originalData = await menu.findByPk(obj.id, { transaction });
+    if (!originalData) {
+      await transaction.rollback();
+      return Helper.response("failed", "Menu not found!", {}, res, 200);
+    }
+
+
+    const existingMenu = await menu.count({
       where: {
-        id: {
-          [Op.notIn]: Array.isArray(obj.id) ? obj.id : [obj.id],
-        },
+        id: { [Op.notIn]: [obj.id] },
         name: obj.name,
-        parent_id:obj?.parent_id
+        parent_id: obj?.parent_id,
       },
+      transaction,
     });
 
-    if (!data) {
-      let createMenu = await menu.update(obj, {
-        where: {
-          id: obj.id,
-        },
-        transaction, 
-      });
-      
-
-      if (createMenu) {
-        await transaction.commit(); // Commit transaction
-        await log.create({
-          tableName: "menu",
-          recordId: createMenu.id,
-          action: "UPDATE",
-          oldData: JSON.stringify(obj),
-          newData: JSON.stringify(obj),
-          changedBy: req.users.id,
-        });
-
-        return Helper.response(
-          "success",
-          "Menu Created Successfully",
-          null,
-          res,
-          200
-        );
-      }
-    } else {
+    if (existingMenu > 0) {
+      await transaction.rollback();
       return Helper.response("failed", "Menu already exists", null, res, 200);
     }
+
+    let updateMenu = await menu.update(obj, {
+      where: { id: obj.id },
+      transaction,
+    });
+
+    if (updateMenu) {
+      const updatedData = await menu.findByPk(obj.id, { transaction });
+
+
+      await log.create(
+        {
+          tableName: "menu",
+          recordId: obj.id,
+          action: "UPDATE",
+          oldData: originalData.toJSON(),
+          newData: updatedData.toJSON(),
+          changedBy: req.users.id,
+        },
+        { transaction }
+      );
+
+      await transaction.commit(); // Commit transaction
+
+      return Helper.response(
+        "success",
+        "Menu Updated Successfully",
+        null,
+        res,
+        200
+      );
+    } else {
+      await transaction.rollback();
+      return Helper.response("failed", "Failed to update menu", null, res, 200);
+    }
   } catch (error) {
-    console.error("Error creating menu:", error);
-    return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
+    await transaction.rollback(); // Rollback on error
+    console.error("Error updating menu:", error);
+    return Helper.response("failed", error?.errors?.[0]?.message || "An error occurred", {}, res, 200);
   }
 };
+
 
 exports.getdocument = async (req, res) => {
   try {
@@ -280,11 +314,21 @@ exports.getdocument = async (req, res) => {
         attributes: [
           "id",
           "image_alt",
+          "hn_image_alt",
+          "hn_image_title",
           "order",
           "banner_image",
           "status",
           "createdAt",
         ],
+        where: {
+          doc_type: {
+            [Op.or]: {
+              [Op.is]: null, 
+              [Op.eq]: ""    
+            }
+          }
+        },
         order: [["createdAt", "ASC"]],
       })
     ).map((item) => item.toJSON());
@@ -323,21 +367,20 @@ exports.getdocument = async (req, res) => {
 exports.getgallerydocument = async (req, res) => {
   try {
     console.log(req.body);
-
-    let type = req?.body?.doc_type;
-    const documentdata = (
-      await document.findAll({
+    const lang = req.headers?.language === "hn" ? "hn" : "en"; 
+   
+    let type = req?.body?.doc_type|| null;
+    if(req.headers.language){
+      // Determine the language-specific columns dynamically
+   const languageColumns = lang === "hn"? ["hn_image_title", "hn_image_alt"]: ["image_title", "image_alt"];
+      const documentdata = (await document.findAll({
         attributes: [
           "id",
-          "image_alt",
-          "image_title",
+          ...languageColumns,
           "order",
           "banner_image",
           "status",
-          "createdAt",
-          "hn_image_title",
-          "hn_image_alt"
-        ],
+          "createdAt"],
         order: [["createdAt", "ASC"]],
         where: {
           doc_type: type,
@@ -355,6 +398,28 @@ exports.getgallerydocument = async (req, res) => {
     } else {
       return Helper.response("failed", "No data found", null, res, 200);
     }
+    }else{
+      const documentdata = (await document.findAll({attributes: ["id","image_alt","image_title", "order","banner_image","status","createdAt","hn_image_title","hn_image_alt"],
+        order: [["createdAt", "ASC"]],
+        where: {
+          doc_type: type,
+        },
+      })
+    ).map((item) => item.toJSON());
+    if (documentdata.length > 0) {
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        { tableData: documentdata },
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+    }
+    
+
   } catch (error) {
     return Helper.response(
       "failed",
@@ -424,7 +489,11 @@ exports.updatedocumentdata = async (req, res) => {
       );
 
       const originalData = await document.findByPk(transformedFields.id);
-
+      if (!originalData) {
+        await transaction.rollback();
+        return Helper.response("failed", "Document not found!", {}, res, 200);
+      }
+  
       const emptyField = Object.entries(transformedFields).find(
         ([_, value]) => !value
       );
@@ -514,6 +583,11 @@ exports.updatedocumentstatus = async (req, res) => {
       obj.status="true"
     }
     const originalData = await document.findByPk(obj.id);
+    if (!originalData) {
+      await transaction.rollback();
+      return Helper.response("failed", "Document not found!", {}, res, 200);
+    }
+
     const updatestatus = await document.update(obj, {
       where: { id: obj.id },
       transaction,
@@ -566,6 +640,8 @@ exports.addmangedirectory = async (req, res) => {
         ([key, value]) => !value
       );
 
+
+
       if (emptyField) {
         await transaction.rollback();
         return Helper.response(
@@ -580,6 +656,22 @@ exports.addmangedirectory = async (req, res) => {
       transformedFields["createdAt"] = new Date();
       transformedFields["status"] ='ACTIVE'
       console.log(transformedFields, "transformfieldss");
+
+      // Validate email, phone, and aadhaar
+    const [emailExists, phoneExists] = await Promise.all([
+      managedirectory.count({ where: { email: transformedFields.email } }),
+      managedirectory.count({ where: { phone: transformedFields.phone } }),
+    ]);
+    if (emailExists)
+      return Helper.response("failed", "Email already exists", {}, res, 200);
+    if (phoneExists)
+      return Helper.response(
+        "failed",
+        "Mobile number already exists",
+        {},
+        res,
+        200
+      );
 
       // const convertDataToArray = (data) => {
       //   return [
@@ -680,7 +772,11 @@ exports.updatemangedirectory = async (req, res) => {
       );
 
       const originalData = await managedirectory.findByPk(transformedFields.id);
-
+      if (!originalData) {
+        await transaction.rollback();
+        return Helper.response("failed", "Users not found!", {}, res, 200);
+      }
+  
       const emptyField = Object.entries(transformedFields).find(
         ([_, value]) => !value
       );
@@ -733,8 +829,8 @@ exports.updatemangedirectory = async (req, res) => {
         tableName: "managedirectory",
         recordId: transformedFields.id,
         action: "UPDATE",
-        oldData: originalData.toJSON(),
-        newData: updatedData.toJSON(),
+        oldData: originalData?.toJSON(),
+        newData: updatedData?.toJSON(),
         changedBy: req.users.id,
       });
 
@@ -771,28 +867,26 @@ exports.getmangementdirdata = async (req, res) => {
         "hn_last_name",
         "phone",
         "email",
+        "order",
         "en_designation",
         "hn_designation",
+
         "img",
         "status",
         "createdAt",
       ],
-      where: {
-        lang: lang,
-      },
+      // where: {
+      //   lang: lang,
+      // },
       order: [["createdAt", "ASC"]],
     });
-    const parsedData = documentdata.map((item) => ({
-      ...item.toJSON(),
-      phone: item.phone ? item.phone : null,
-      email: item.email ? item.email: null,
-    }));
+   
 
-    if (parsedData.length > 0) {
+    if (documentdata.length > 0) {
       return Helper.response(
         "success",
         "data found Successfully",
-        { tableData: parsedData },
+        { tableData: documentdata },
         res,
         200
       );
@@ -843,13 +937,13 @@ exports.addvedio = async (req, res) => {
       "hn_image_title":obj?.hn_video_title,
       "hn_image_alt":obj?.hn_video_description,
       "status":'true',
-      "img_type":"video",
+      "doc_type":"video",
       "created_by":req.users.id
     }
     let uploadvedio = await document.create(newObj);
-
+    await transaction.commit();
     if (uploadvedio) {
-      await transaction.commit(); // Commit transaction
+       // Commit transaction
       await log.create({
         tableName: "document",
         recordId: uploadvedio.id,
@@ -878,105 +972,111 @@ exports.addvedio = async (req, res) => {
     );
   }
 };
-exports.updatevediodata = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  try {
-    new formidable.IncomingForm().parse(req, async (err, fields, files) => {
-      if (err)
-        return Helper.response("failed", "Error parsing form", err, res, 200);
+// exports.updatevediodata = async (req, res) => {
+//   const transaction = await sequelize.transaction();
+//   try {
+//     const form = new formidable.IncomingForm();
+//     form.parse(req, async (err, fields, files) => {
+//       if (err)
+//       {
+//         console.log(err)
+//         await transaction.rollback();
+//         return Helper.response("failed", "Error parsing form", err, res, 200);
+//       }
+       
 
-      const transformedFields = Object.fromEntries(
-        Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
-      );
+//       const transformedFields = Object.fromEntries(
+//         Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
+//       );
 
-      const originalData = await document.findByPk(transformedFields.id);
+//       const originalData = await document.findByPk(transformedFields.id);
 
-      const emptyField = Object.entries(transformedFields).find(
-        ([_, value]) => !value
-      );
-      if (emptyField) {
-        await transaction.rollback();
-        return Helper.response(
-          "failed",
-          `${emptyField[0]} cannot be empty!`,
-          null,
-          res,
-          200
-        );
-      }
+//       const emptyField = Object.entries(transformedFields).find(
+//         ([_, value]) => !value
+//       );
+//       if (emptyField) {
+//         await transaction.rollback();
+//         return Helper.response(
+//           "failed",
+//           `${emptyField[0]} cannot be empty!`,
+//           null,
+//           res,
+//           200
+//         );
+//       }
       
-        transformedFields["img_title"]=obj?.video_title
-        transformedFields["banner_image"]=obj?.video_url
-        transformedFields["img_alt"]=obj?.video_description
-        transformedFields["hn_img_title"]=obj?.hn_video_title
-        transformedFields["hn_img_alt"]=obj?.hn_video_description
-        transformedFields["status"]='true'
-        transformedFields["img_type"]="video"
-        transformedFields["updated_by"]=req.users.id
+//         transformedFields["img_title"]=obj?.video_title
+//         transformedFields["banner_image"]=obj?.video_url
+//         transformedFields["img_alt"]=obj?.video_description
+//         transformedFields["hn_img_title"]=obj?.hn_video_title
+//         transformedFields["hn_img_alt"]=obj?.hn_video_description
+//         transformedFields["status"]='true'
+//         transformedFields["img_type"]="video"
+//         transformedFields["updated_by"]=req.users.id
       
-      const documentdt = await document.update(
-        {
-          ...transformedFields,
-          updated_by: req.users.id,
-          createdAt: new Date(),
-        },
-        { where: { id: transformedFields.id }, transaction }
-      );
+//       const documentdt = await document.update(
+//         {
+//           ...transformedFields,
+//           updated_by: req.users.id,
+//           createdAt: new Date(),
+//         },
+//         { where: { id: transformedFields.id }, transaction }
+//       );
 
-      // if (files.type !== "vedio") {
-      //   for (const field in files) {
-      //     if (files[field]?.[0]) {
-      //       const result = await moveFile(
-      //         files[field][0],
-      //         `documents`,
-      //         transformedFields.id
-      //       );
-      //       if (result.error) {
-      //         await transaction.rollback();
-      //         return Helper.response("failed", result.error, null, res, 200);
-      //       }
-      //       transformedFields[field] = path.basename(result.filePath);
-      //     }
-      //   }
-      //   await document.update(transformedFields, {
-      //     where: { id: transformedFields.id },
-      //     transaction,
-      //   });
-      // }
+//       // if (files.type !== "vedio") {
+//       //   for (const field in files) {
+//       //     if (files[field]?.[0]) {
+//       //       const result = await moveFile(
+//       //         files[field][0],
+//       //         `documents`,
+//       //         transformedFields.id
+//       //       );
+//       //       if (result.error) {
+//       //         await transaction.rollback();
+//       //         return Helper.response("failed", result.error, null, res, 200);
+//       //       }
+//       //       transformedFields[field] = path.basename(result.filePath);
+//       //     }
+//       //   }
+//       //   await document.update(transformedFields, {
+//       //     where: { id: transformedFields.id },
+//       //     transaction,
+//       //   });
+//       // }
 
-      await transaction.commit();
+//       await transaction.commit();
 
-      const updatedData = await document.findByPk(transformedFields.id);
-      // **Log the update action**
-      await log.create({
-        tableName: "document",
-        recordId: transformedFields.id,
-        action: "UPDATE",
-        oldData: originalData.toJSON(),
-        newData: updatedData.toJSON(),
-        changedBy: req.users.id,
-      });
+//       const updatedData = await document.findByPk(transformedFields.id);
+//       // **Log the update action**
+//       await log.create({
+//         tableName: "document",
+//         recordId: transformedFields.id,
+//         action: "UPDATE",
+//         oldData: originalData.toJSON(),
+//         newData: updatedData.toJSON(),
+//         changedBy: req.users.id,
+//       });
 
-      return Helper.response(
-        "success",
-        "Document Updated successfully",
-        documentdt,
-        res,
-        200
-      );
-    });
-  } catch (error) {
-    console.log("error:", error);
-    await transaction.rollback();
-    return Helper.response(
-      "failed",
-      error.message || "Something went wrong",
-      {},
-      res,
-      200
-    );
-  }
-};
+//       return Helper.response(
+//         "success",
+//         "Document Updated successfully",
+//         documentdt,
+//         res,
+//         200
+//       );
+//     });
+//   } catch (error) {
+//     console.log("error:", error);
+//     await transaction.rollback();
+//     return Helper.response(
+//       "failed",
+//       error.message || "Something went wrong",
+//       {},
+//       res,
+//       200
+//     );
+//   }
+// };
 
 exports.getvediodata = async (req, res) => {
   try {
@@ -989,7 +1089,7 @@ const documentdata = (
       "id",
       [col("image_alt"), "video_description"],
       [col("image_title"), "video_title"],
-      [col("banner_image"), "video_image"],
+      [col("banner_image"), "video_url"],
       [col("hn_image_alt"), "hn_video_description"],
       [col("hn_image_title"), "hn_video_title"],
       "status",
@@ -1102,5 +1202,237 @@ exports.uploaddocument = async (req, res) => {
       res,
       200
     );
+  }
+};
+
+exports.updatevediodata = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    let obj = req.body;
+    obj.created_by = req.users.id;
+    const validateFields = (data) => {
+      for (const key in data) {
+        if (typeof data[key] === "string") {
+          data[key] = data[key].trim(); // Trim spaces before validation
+        }
+
+        if (data[key] === "" || data[key] === null || data[key] === undefined) {
+          return `Error: ${key} cannot be empty!`;
+        }
+      }
+      return null; // No errors
+    };
+    // **Apply Validation**
+    const validationError = validateFields(obj);
+    if (validationError) {
+      await transaction.rollback();
+      return Helper.response("failed", validationError, null, res, 200);
+    }
+   
+    obj["img_title"]=obj?.video_title
+            obj["banner_image"]=obj?.video_url
+            obj["img_alt"]=obj?.video_description
+            obj["hn_image_title"]=obj?.hn_video_title
+            obj["hn_image_alt"]=obj?.hn_video_description
+            obj["status"]='true'
+            obj["doc_type"]="video"
+            obj["updated_by"]=req.users.id
+      let createMenu = await document.update(obj, {
+        where: {
+          id: obj.id,
+        },
+        transaction, 
+      });
+      await transaction.commit(); // Commit transaction
+
+      // if (createMenu) {
+       
+      //   await log.create({
+      //     tableName: "document",
+      //     recordId: createMenu.id,
+      //     action: "UPDATE",
+      //     oldData: JSON.stringify(obj),
+      //     newData: JSON.stringify(obj),
+      //     changedBy: req.users.id,
+      //   });
+
+        return Helper.response(
+          "success",
+          "Video Updated Successfully",
+          null,
+          res,
+          200
+        );
+      // }
+ 
+  } catch (error) {
+    console.error("Error creating menu:", error);
+    return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
+  }
+};
+
+exports.updatevediostatus = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    let obj = req.body;
+    obj.created_by = req.users.id;
+    const validateFields = (data) => {
+      for (const key in data) {
+        if (typeof data[key] === "string") {
+          data[key] = data[key].trim(); // Trim spaces before validation
+        }
+
+        if (data[key] === "" || data[key] === null || data[key] === undefined) {
+          return `Error: ${key} cannot be empty!`;
+        }
+      }
+      return null; // No errors
+    };
+    // **Apply Validation**
+    const validationError = validateFields(obj);
+    if (validationError) {
+      await transaction.rollback();
+      return Helper.response("failed", validationError, null, res, 200);
+    }
+   
+    // obj["img_title"]=obj?.video_title
+    //         obj["banner_image"]=obj?.video_url
+    //         obj["img_alt"]=obj?.video_description
+    //         obj["hn_image_title"]=obj?.hn_video_title
+    //         obj["hn_image_alt"]=obj?.hn_video_description
+    //         obj["status"]='true'
+            obj["doc_type"]="video"
+            obj["updated_by"]=req.users.id
+            if(obj.status=="true"){
+              obj.status=="false"
+            }else{
+              obj.status="true"
+            }
+      let createMenu = await document.update(obj, {
+        where: {
+          id: obj.id,
+        },
+        transaction, 
+      });
+      await transaction.commit(); // Commit transaction
+
+      // if (createMenu) {
+       
+      //   await log.create({
+      //     tableName: "document",
+      //     recordId: createMenu.id,
+      //     action: "UPDATE",
+      //     oldData: JSON.stringify(obj),
+      //     newData: JSON.stringify(obj),
+      //     changedBy: req.users.id,
+      //   });
+
+        return Helper.response(
+          "success",
+          "Video Updated Successfully",
+          null,
+          res,
+          200
+        );
+      // }
+ 
+  } catch (error) {
+    console.error("Error creating menu:", error);
+    return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
+  }
+};
+
+exports.getmenulist= async (req, res) => {
+  try {
+
+const menudata = await menu.findAll({ attributes: [[col("id"), "value"],[col("en_name"), "label"],"hn_name","status","createdAt",],
+    order: [["createdAt", "ASC"]],
+  })
+
+    if (menudata.length > 0) {
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        menudata,
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
+
+
+exports.getmenudata = async (req, res) => {
+  try {
+  
+    const menudata = (
+      await menu.findAll({
+        attributes: [
+          "id",
+          "parent_id",
+          "hn_menu",
+          "menu",
+          "page_title",
+          "hn_page_title",
+         "description",
+         "hn_description",
+          "page_type",
+          "page_url",
+          "status",
+        ],
+        order: [["id", "desc"]],
+      })
+    ).map((item) => item.toJSON());
+    console.log(menudata);
+    
+    if (menudata.length > 0) {
+      // Create a map for quick lookup
+      const map = {};
+      menudata.forEach((item) => {
+        map[item.id] = { ...item, submenu: [] };
+      });
+
+      //  Build the tree structure
+      let tree = [];
+      menudata.forEach((item) => {
+        if (item.parent_id !== 0) {
+          map[item.parent_id]?.submenu.push(map[item.id]);
+        } else {
+          tree.push(map[item.id]);
+        }
+      });
+      tree = tree.map((item) => {
+        if (Array.isArray(item.submenu) && item.submenu.length === 0) {
+          delete item.submenu;
+        }
+        return item;
+      });
+
+      //  Output the nested structure
+      // console.log(JSON.stringify(tree, null, 2));
+
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        { tableData: tree },
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    console.error("Error creating menu:", error);
+    return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
   }
 };

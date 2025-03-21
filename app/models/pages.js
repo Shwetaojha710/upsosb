@@ -11,6 +11,10 @@ const page = sequelize.define("page", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   data: {
     type: DataTypes.JSON, 
     allowNull: true,
@@ -29,6 +33,11 @@ const page = sequelize.define("page", {
     allowNull: false,
     defaultValue: DataTypes.NOW,
   },
+   status: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: 1,
+    },
 });
 
 

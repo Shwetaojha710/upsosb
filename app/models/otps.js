@@ -39,10 +39,11 @@ const otp = sequelize.define('otp', {
         type: DataTypes.BIGINT, 
         allowNull: true,
     },
-    status:{
-        type:DataTypes.BOOLEAN,
-        defaultValue:true
-    }
+    status: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: 1,
+      },
 })
 
 module.exports = otp;
