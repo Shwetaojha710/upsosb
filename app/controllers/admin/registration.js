@@ -39,9 +39,12 @@ exports.employeeregistration = async (req, res) => {
         return Helper.response("failed", validationError, null, res, 200);
       }
       let login_user_data = req.users;
-      data.created_by = login_user_data.id;
-      data.jwt_token = login_user_data.token;
       data.created_by = 1;
+      data.jwt_token = await Helper.generateToken(req.body);
+      // data.jwt_token = login_user_data.token;
+      // data.created_by = login_user_data.id;
+      // data.jwt_token = login_user_data.token;
+   
       data.loginId = `${data.role}000111`;
   
       // Validate email, phone, and aadhaar
@@ -70,7 +73,7 @@ exports.employeeregistration = async (req, res) => {
       }, {});
   
       let createuserward;
-  
+      data.password=Helper.encryptPassword(data.password)
       const newUser = await users.create(data, { transaction });
   
   
@@ -82,7 +85,7 @@ exports.employeeregistration = async (req, res) => {
           action: "CREATE",
           oldData: JSON.stringify(data),
           newData: JSON.stringify(data),
-          changedBy: req.users.id,
+          changedBy: 1,
         });
   
         return Helper.response("success", message, newUser, res, 200);

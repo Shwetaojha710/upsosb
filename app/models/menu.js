@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../connection/sequelize');
-
+const log=require('./log')
 const menu = sequelize.define("menu", {
   id: {
     type: DataTypes.BIGINT,
@@ -48,6 +48,45 @@ const menu = sequelize.define("menu", {
   charset: 'utf8mb4',
   collate: 'utf8mb4_unicode_ci'
 });
+
+
+
+menu.afterCreate(async (menus,options)=>{
+  await log.create({
+      tableName: "menu",
+      recordId: menus.id,
+      action: "CREATE",
+      oldData: menus.toJSON(),
+      newData: null,
+      changedBy: options.user || "System",
+  });
+})
+
+
+menu.beforeUpdate(async (menus, options) => {
+  const originalData = await menu.findByPk(menus.id);
+  await log.create({
+      tableName: "menus",
+      recordId: menus.id,
+      action: "UPDATE",
+      oldData: originalData.toJSON(),
+      newData: menus.toJSON(),
+      createdBy: menus.id || "System",
+  });
+});
+
+
+menu.beforeDestroy(async (menus, options) => {
+  await log.create({
+      tableName: "menus",
+      recordId: menus.id,
+      action: "DELETE",
+      oldData: menus.toJSON(),
+      newData: null,
+      createdBy: menus.id || "System",
+  });
+});
+
 
 
 module.exports = menu;

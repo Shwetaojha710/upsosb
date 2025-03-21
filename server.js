@@ -14,6 +14,9 @@ const sequelize = require('./app/connection/sequelize');
 const document = require('./app/models/document')
 const user=require('./app/models/users')
 const log =require('./app/models/log')
+const page=require('./app/models/pages')
+const managedirectory=require('./app/models/managedirectory')
+const tender=require('./app/models/tender')
 sequelize.sync({ force: false }) // `force: true` will drop tables and recreate them
   .then(() => {
     console.log('Database & tables synced!');
@@ -24,42 +27,43 @@ sequelize.sync({ force: false }) // `force: true` will drop tables and recreate 
 app.use(express.static("documents"));
 app.use('/documents', express.static(path.join(__dirname, 'documents')));
 const blockedIPs = new Set();
+app.use(express.text({ type: 'text/html' })); 
+// app.use(async (req, res, next) => {
+//     console.log(await Helper.getLocalIP())
+//     const ip = req.ip;
+//      console.log(ip,"your ip")
+//     if (blockedIPs.has(ip)) {
+//         return Helper.response("failed", "Too many requests. You are blocked.", {}, res, 200);
+//     }
 
-app.use(async (req, res, next) => {
-    console.log(await Helper.getLocalIP())
-    const ip = req.ip;
-     console.log(ip,"your ip")
-    if (blockedIPs.has(ip)) {
-        return Helper.response("failed", "Too many requests. You are blocked.", {}, res, 200);
-    }
-
-    next();
-});
-
-
-
-const limiter = rateLimit({
-    windowMs: 1000, 
-    max: 5, 
-    keyGenerator: (req) => `${req.ip}-${req.path}`, 
-    handler: (req, res) => {
-        const ip = req.ip;
-
-        blockedIPs.add(ip);
-        console.log(`Blocked IP: ${ip} for excessive requests to ${req.path}`);
-
-        // Unblock after 5 minutes
-        setTimeout(() => {
-            blockedIPs.delete(ip);
-            console.log(`Unblocked IP: ${ip}`);
-        }, 5 * 60 * 1000);
-
-        return Helper.response("failed", "Too many requests. You are blocked.", {}, res, 200);
-    }
-});
+//     next();
+// });
 
 
-app.use(limiter);
+// let i =0
+// const limiter = rateLimit({
+//     windowMs: 1000, 
+//     max: 10, 
+//     keyGenerator: (req) => `${req.ip}-${req.path}`, 
+//     handler: (req, res) => {
+//         const ip = req.ip;
+   
+//         blockedIPs.add(ip);
+//     console.log(req.path,`apii calling time${i++}`)
+//         console.log(`Blocked IP: ${ip} for excessive requests to ${req.path}`);
+
+//         // Unblock after 5 minutes
+//         setTimeout(() => {
+//             blockedIPs.delete(ip);
+//             console.log(`Unblocked IP: ${ip}`);
+//         }, 5 * 60 * 1000);
+
+//         return Helper.response("failed", "Too many requests. You are blocked.", {}, res, 200);
+//     }
+// });
+
+
+// app.use(limiter);
 
 
 app.use(body.json({ limit: '10mb' }))
