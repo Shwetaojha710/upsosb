@@ -267,7 +267,7 @@ exports.updatetender = async (req, res) => {
         action: "UPDATE",
         oldData: originalData.toJSON(),
         newData: updatedData.toJSON(),
-        changedBy: req.users.id,
+        createdBy: req.users.id,
       });
 
       return Helper.response(

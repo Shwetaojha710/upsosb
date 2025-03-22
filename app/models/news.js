@@ -35,7 +35,7 @@ const news = sequelize.define("news", {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    lang: {
+    doc_lang: {
         type: DataTypes.STRING,
         allowNull: true,
     },
@@ -45,6 +45,14 @@ const news = sequelize.define("news", {
     },
     size: {
         type: DataTypes.STRING,
+        allowNull: true,
+    },
+    doc_format: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    date: {
+        type: DataTypes.DATE,
         allowNull: true,
     },
     isarchives: {
@@ -73,6 +81,7 @@ news.afterCreate(async (newss,options)=>{
     await log.create({
         tableName: "news",
         recordId: newss.id,
+        module:newss?.module,
         action: "CREATE",
         oldData: newss.toJSON(),
         newData: null,
@@ -86,6 +95,7 @@ news.beforeUpdate(async (newss, options) => {
     await log.create({
         tableName: "news",
         recordId: newss.id,
+        module:newss?.module,
         action: "UPDATE",
         oldData: originalData.toJSON(),
         newData: newss.toJSON(),
@@ -98,6 +108,7 @@ news.beforeDestroy(async (newss, options) => {
     await log.create({
         tableName: "news",
         recordId: newss.id,
+        module:newss?.module,
         action: "DELETE",
         oldData: newss.toJSON(),
         newData: null,

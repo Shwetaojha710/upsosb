@@ -7,69 +7,8 @@ const mime = require("mime-types");
 const fileType = require("file-type");
 const log = require("../../models/log");
 const organizational= require('../../models/organizational')
+const Op=require('sequelize')
 
-async function moveFile(file, baseUploadDir, userId) {
-  try {
-    await fs.promises.mkdir(baseUploadDir, { recursive: true });
-
-    const buffer = await fs.promises.readFile(file.filepath);
-    const detectedType = await fileType.fromBuffer(buffer);
-    const allowedTypes = {
-      "image/png": "png",
-      "image/jpeg": "jpg",
-      "image/jpg": "jpg",
-      "video/mp4": "mp4",
-      "text/plain": "txt",
-      "application/pdf": "pdf",
-      "application/msword": "doc",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        "docx",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        "docx",
-      "application/vnd.ms-excel": ".xls",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-        ".xlsx",
-    };
-
-    if (!detectedType || !allowedTypes[detectedType.mime]) {
-      return { error: `Invalid file type.` };
-    }
-
-    const correctExtension = allowedTypes[detectedType.mime];
-    if (
-      path.extname(file.originalFilename).slice(1).toLocaleLowerCase() !==
-      correctExtension
-    ) {
-      return { error: `File extension does not match file content.` };
-    }
-
-    const filePath = path.join(
-      baseUploadDir,
-      `${userId}_${Date.now()}.${correctExtension}`
-    );
-    await fs.promises.rename(file.filepath, filePath);
-
-    return { filePath };
-  } catch (error) {
-    console.error(`File move error:`, error.message);
-    return { error: error.message };
-  }
-}
-const copyFile = async (sourcePath, destFolder, userId) => {
-  const folderPath = path.join(process.cwd(), destFolder);
-  await fs.promises.mkdir(folderPath, { recursive: true });
-
-  const uniqueName = `${userId}_${Date.now()}_${path.basename(sourcePath)}`;
-  const destinationPath = path.join(folderPath, uniqueName);
-
-  try {
-    await fs.promises.copyFile(sourcePath, destinationPath); // ✅ Copy file
-    return { filePath: destinationPath };
-  } catch (err) {
-    console.error(`Error copying file:`, err);
-    return { error: err.message };
-  }
-};
 
 exports.addorganizational = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -94,6 +33,7 @@ exports.addorganizational = async (req, res) => {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);
     }
+    console.log(obj,"body data")
     const data = await organizational.count({
       where: {
         hn_heading: obj.hn_heading,
@@ -112,10 +52,11 @@ exports.addorganizational = async (req, res) => {
         await log.create({
           tableName: "organizational",
           recordId: createorganizational.id,
+          module:obj?.module,
           action: "CREATE",
           oldData: JSON.stringify(obj),
           newData: JSON.stringify(obj),
-          changedBy: req.users.id,
+          createdBy: req.users.id,
         });
 
         return Helper.response(
@@ -206,13 +147,18 @@ exports.updateorganizational = async (req, res) => {
         id: {
           [Op.notIn]: Array.isArray(obj.id) ? obj.id : [obj.id],
         },
-        name: obj.name,
-        parent_id:obj?.parent_id
+       
+        heading: obj?.heading,
+        // hn_title: obj?.hn_title,
+        // title:obj?.title,
+        // description:obj?.description,
+        // hn_description:obj?.hn_description,
+        // hn_heading: obj?.hn_heading,
       },
     });
 
     if (!data) {
-      let createMenu = await menu.update(obj, {
+      let createMenu = await organizational.update(obj, {
         where: {
           id: obj.id,
         },
@@ -223,17 +169,18 @@ exports.updateorganizational = async (req, res) => {
       if (createMenu) {
         await transaction.commit(); // Commit transaction
         await log.create({
-          tableName: "menu",
-          recordId: createMenu.id,
+          tableName: "organizational",
+          recordId: createMenu[0],
+          module:obj?.module,
           action: "UPDATE",
           oldData: JSON.stringify(obj),
           newData: JSON.stringify(obj),
-          changedBy: req.users.id,
+          createdBy: req.users.id,
         });
 
         return Helper.response(
           "success",
-          "Menu Created Successfully",
+          "organizational Updated Successfully",
           null,
           res,
           200

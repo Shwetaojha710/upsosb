@@ -11,6 +11,10 @@ const log = sequelize.define("log", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  module: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   recordId: {
     type: DataTypes.STRING(36), 
     allowNull: false,

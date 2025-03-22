@@ -75,6 +75,7 @@ menu.afterCreate(async (menus,options)=>{
   await log.create({
       tableName: "menu",
       recordId: menus.id,
+      module:menus.mdoule,
       action: "CREATE",
       oldData: menus.toJSON(),
       newData: null,
@@ -88,6 +89,7 @@ menu.beforeUpdate(async (menus, options) => {
   await log.create({
       tableName: "menus",
       recordId: menus.id,
+      module:menus.mdoule,
       action: "UPDATE",
       oldData: originalData.toJSON(),
       newData: menus.toJSON(),
@@ -100,6 +102,7 @@ menu.beforeDestroy(async (menus, options) => {
   await log.create({
       tableName: "menus",
       recordId: menus.id,
+      module:menus.mdoule,
       action: "DELETE",
       oldData: menus.toJSON(),
       newData: null,

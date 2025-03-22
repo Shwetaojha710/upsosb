@@ -1,15 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const { createmenu,menudata ,uploaddocument,getdocument, updatedocumentdata, updatedocumentstatus, addmangedirectory, gethomebannerImage, updatemangedirectory, getmangementdirdata, getgallerydocument, getvediodocument, getvediodata, addvedio, updatevediodata, getmenulist, updatevediostatus, getmenudata, updatemenu} = require("../controllers/admin/admin");
+const { createmenu ,uploaddocument, updatedocumentdata, updatedocumentstatus, addmangedirectory, updatemangedirectory, getmangementdirdata, getgallerydocument, getvediodocument, getvediodata, addvedio, updatevediodata, getmenulist, updatevediostatus, getmenudata, updatemenu,updatemenustatus} = require("../controllers/admin/admin");
 const { employeeregistration} = require("../controllers/admin/registration");
 const { Admin} = require("../middleware/auth");
-const { createhtmldata ,gethtmldata} = require("../controllers/public/public");
+const { createhtmldata } = require("../controllers/public/public");
 const { addtender, getenderlist } = require("../controllers/admin/tender");
 const { addorganizational, georganizationallist, updateorganizational } = require("../controllers/admin/organizational");
 const { addnews, genewslist, updatenews } = require("../controllers/admin/news");
 router.post('/employee-reg',employeeregistration)
 router.post('/create-menu',Admin,createmenu)
 router.post('/get-menu-data',Admin,getmenudata)
+router.post('/update-menu-status',Admin,updatemenustatus)
 router.post('/update-menu',Admin,updatemenu)
 router.post('/upload-document',Admin,uploaddocument)
 router.post('/edit-document',Admin,updatedocumentdata)
@@ -36,8 +37,8 @@ router.post('/update-news',Admin,updatenews)
 
 
 // publicc
-router.post('/get-menu-data',menudata)
-router.post('/get-home-banner-image',gethomebannerImage)
-router.post('/get-document',getdocument)
-router.post('/get-page',gethtmldata)
+// router.post('/get-menu-data',menudata)
+// router.post('/get-home-banner-image',gethomebannerImage)
+// router.post('/get-document',getdocument)
+// router.post('/get-page',gethtmldata)
 module.exports = router

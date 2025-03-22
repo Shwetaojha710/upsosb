@@ -19,6 +19,7 @@ const managedirectory=require('./app/models/managedirectory')
 const tender=require('./app/models/tender')
 const orgnazilation = require('./app/models/organizational')
 const news= require('./app/models/news')
+const uploadpagedoc=require('./app/models/uploadpagedoc')
 sequelize.sync({ force: false }) // `force: true` will drop tables and recreate them
   .then(() => {
     console.log('Database & tables synced!');

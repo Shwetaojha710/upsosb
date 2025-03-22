@@ -61,6 +61,7 @@ organizational.afterCreate(async (organizationals,options)=>{
     await log.create({
         tableName: "organizational",
         recordId: organizationals.id,
+        module:organizationals?.module,
         action: "CREATE",
         oldData: organizationals.toJSON(),
         newData: null,

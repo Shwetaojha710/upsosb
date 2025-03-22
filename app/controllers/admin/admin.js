@@ -13,6 +13,7 @@ const managedirectory = require("../../models/managedirectory");
 const tender = require("../../models/tender");
 const { Op } = require("sequelize");
 const { col } = require("sequelize");
+const uploadpagedoc = require("../../models/uploadpagedoc");
 async function moveFile(file, baseUploadDir, userId) {
   try {
     await fs.promises.mkdir(baseUploadDir, { recursive: true });
@@ -120,10 +121,11 @@ exports.createmenu = async (req, res) => {
           {
             tableName: "menu",
             recordId: createMenu.id,
+            module:obj.module,
             action: "CREATE",
             oldData: JSON.stringify(obj),
             newData: JSON.stringify(obj),
-            changedBy: req.users.id,
+            createdBy: req.users.id,
           },
           { transaction }
         );
@@ -156,7 +158,7 @@ exports.menudata = async (req, res) => {
     const menudata = (
       await menu.findAll({
         where: {
-          status: "ACTIVE",
+          status: true,
         },
         attributes: [
           "id",
@@ -254,8 +256,7 @@ exports.updatemenu = async (req, res) => {
     const existingMenu = await menu.count({
       where: {
         id: { [Op.notIn]: [obj.id] },
-        name: obj.name,
-        parent_id: obj?.parent_id,
+        menu: obj.menu
       },
       transaction,
     });
@@ -278,10 +279,91 @@ exports.updatemenu = async (req, res) => {
         {
           tableName: "menu",
           recordId: obj.id,
+          module:obj.module,
           action: "UPDATE",
           oldData: originalData.toJSON(),
           newData: updatedData.toJSON(),
-          changedBy: req.users.id,
+          createdBy: req.users.id,
+        },
+        { transaction }
+      );
+
+      await transaction.commit(); // Commit transaction
+
+      return Helper.response(
+        "success",
+        "Menu Updated Successfully",
+        null,
+        res,
+        200
+      );
+    } else {
+      await transaction.rollback();
+      return Helper.response("failed", "Failed to update menu", null, res, 200);
+    }
+  } catch (error) {
+    await transaction.rollback(); // Rollback on error
+    console.error("Error updating menu:", error);
+    return Helper.response("failed", error?.errors?.[0]?.message || "An error occurred", {}, res, 200);
+  }
+};
+
+exports.updatemenustatus = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    let obj = req.body;
+    obj.updated_by = req.users.id;
+
+    // **Validation Function**
+    const validateFields = (data) => {
+      for (const key in data) {
+        if (typeof data[key] === "string") {
+          data[key] = data[key].trim(); 
+        }
+        if (data[key] === "" || data[key] === null || data[key] === undefined) {
+          return `Error: ${key} cannot be empty!`;
+        }
+      }
+      return null;
+    };
+
+    const validationError = validateFields(obj);
+    if (validationError) {
+      await transaction.rollback();
+      return Helper.response("failed", validationError, null, res, 200);
+    }
+
+    const originalData = await menu.findByPk(obj.id, { transaction });
+    if (!originalData) {
+      await transaction.rollback();
+      return Helper.response("failed", "Menu not found!", {}, res, 200);
+    }
+
+    if(obj.status==true){
+      obj.status=false
+    }else{
+      obj.status=true
+    }
+
+    let updateMenu = await menu.update(obj, {
+      where: { id: obj.id },
+      transaction,
+    });
+
+    if (updateMenu) {
+      const updatedData = await menu.findByPk(obj.id, { transaction });
+
+
+      await log.create(
+        {
+          tableName: "menu",
+          recordId: obj.id,
+          module:obj.module,
+          action: "UPDATE",
+          oldData: originalData.toJSON(),
+          newData: updatedData.toJSON(),
+          createdBy: req.users.id,
         },
         { transaction }
       );
@@ -334,7 +416,7 @@ exports.getdocument = async (req, res) => {
     ).map((item) => item.toJSON());
     if (documentdata.length > 0) {
       const sortedData = documentdata
-        .filter((item) => item.status === "true" || item.status === "false")
+        .filter((item) => item.status === true || item.status === false)
         .sort((a, b) => {
           if (a.order === b.order) {
             return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
@@ -370,17 +452,8 @@ exports.getgallerydocument = async (req, res) => {
     const lang = req.headers?.language === "hn" ? "hn" : "en"; 
    
     let type = req?.body?.doc_type|| null;
-    if(req.headers.language){
-      // Determine the language-specific columns dynamically
-   const languageColumns = lang === "hn"? ["hn_image_title", "hn_image_alt"]: ["image_title", "image_alt"];
-      const documentdata = (await document.findAll({
-        attributes: [
-          "id",
-          ...languageColumns,
-          "order",
-          "banner_image",
-          "status",
-          "createdAt"],
+    
+    const documentdata = (await document.findAll({attributes: ["id","image_alt","image_title", "order","banner_image","status","createdAt","hn_image_title","hn_image_alt"],
         order: [["createdAt", "ASC"]],
         where: {
           doc_type: type,
@@ -398,26 +471,7 @@ exports.getgallerydocument = async (req, res) => {
     } else {
       return Helper.response("failed", "No data found", null, res, 200);
     }
-    }else{
-      const documentdata = (await document.findAll({attributes: ["id","image_alt","image_title", "order","banner_image","status","createdAt","hn_image_title","hn_image_alt"],
-        order: [["createdAt", "ASC"]],
-        where: {
-          doc_type: type,
-        },
-      })
-    ).map((item) => item.toJSON());
-    if (documentdata.length > 0) {
-      return Helper.response(
-        "success",
-        "data found Successfully",
-        { tableData: documentdata },
-        res,
-        200
-      );
-    } else {
-      return Helper.response("failed", "No data found", null, res, 200);
-    }
-    }
+    
     
 
   } catch (error) {
@@ -441,7 +495,7 @@ exports.gethomebannerImage = async (req, res) => {
     ).map((item) => item.toJSON());
     if (documentdata.length > 0) {
       const sortedData = documentdata
-        .filter((item) => item.status === "true" || item.status === "false")
+        .filter((item) => item.status === true || item.status === false)
         .sort((a, b) => {
           if (a.order === b.order) {
             return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
@@ -545,10 +599,11 @@ exports.updatedocumentdata = async (req, res) => {
       await log.create({
         tableName: "document",
         recordId: transformedFields.id,
+        module:transformedFields?.module,
         action: "UPDATE",
         oldData: originalData.toJSON(),
         newData: updatedData.toJSON(),
-        changedBy: req.users.id,
+        createdBy: req.users.id,
       });
 
       return Helper.response(
@@ -601,9 +656,10 @@ exports.updatedocumentstatus = async (req, res) => {
       tableName: "document",
       recordId: obj.id,
       action: "UPDATE",
+      module:obj?.module,
       oldData: originalData.toJSON(),
       newData: updatedData.toJSON(),
-      changedBy: req.users.id,
+      createdBy: req.users.id,
     });
 
     return Helper.response(
@@ -629,130 +685,134 @@ exports.addmangedirectory = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const form = new formidable.IncomingForm();
+
     form.parse(req, async (err, fields, files) => {
-      if (err)
-        return Helper.response("failed", "Error parsing form", err, res, 200);
-
-      const transformedFields = Object.fromEntries(
-        Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
-      );
-      const emptyField = Object.entries(transformedFields).find(
-        ([key, value]) => !value
-      );
-
-
-
-      if (emptyField) {
+      if (err) {
         await transaction.rollback();
+        return Helper.response("failed", "Error parsing form", err, res, 200);
+      }
+
+      try {
+        const transformedFields = Object.fromEntries(
+          Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
+        );
+
+        // Check for empty fields
+        const emptyField = Object.entries(transformedFields).find(
+          ([key, value]) => !value
+        );
+
+        if (emptyField) {
+          await transaction.rollback();
+          return Helper.response(
+            "failed",
+            `Error: ${emptyField[0]} cannot be empty!`,
+            null,
+            res,
+            200
+          );
+        }
+
+        // Assign additional fields
+        transformedFields["created_by"] = req.users.id;
+        transformedFields["createdAt"] = new Date();
+        transformedFields["status"] = 1; // Use integer for status if database column is INTEGER
+
+        console.log(transformedFields, "transformedFields");
+
+        // Validate email and phone uniqueness
+        const [emailExists, phoneExists] = await Promise.all([
+          managedirectory.count({ where: { email: transformedFields.email } }),
+          managedirectory.count({ where: { phone: transformedFields.phone } }),
+        ]);
+
+        if (emailExists) {
+          await transaction.rollback();
+          return Helper.response("failed", "Email already exists", {}, res, 200);
+        }
+
+        if (phoneExists) {
+          await transaction.rollback();
+          return Helper.response("failed", "Mobile number already exists", {}, res, 200);
+        }
+
+        // Insert into database
+        const documentdt = await managedirectory.create(transformedFields, {
+          transaction,
+        });
+
+        if (!documentdt) {
+          await transaction.rollback();
+          return Helper.response("failed", "Failed to create entry", {}, res, 200);
+        }
+
+        // Handle file uploads
+        const baseUploadDir = `documents`;
+        for (const field in files) {
+          if (files[field]?.[0]) {
+            const result = await moveFile(
+              files[field][0],
+              baseUploadDir,
+              documentdt.id
+            );
+
+            if (result.error) {
+              await transaction.rollback();
+              return Helper.response("failed", result.error, null, res, 200);
+            }
+
+            if (typeof result.filePath === "string") {
+              transformedFields[field] = path.basename(result.filePath);
+            }
+          }
+        }
+
+        // Update record with file paths
+        await managedirectory.update(transformedFields, {
+          where: { id: documentdt.id },
+          transaction,
+        });
+
+        // Log entry
+        await log.create(
+          {
+            tableName: "managedirectory",
+            recordId: documentdt.id,
+            module: transformedFields.module,
+            action: "CREATE",
+            oldData: JSON.stringify(transformedFields),
+            newData: JSON.stringify(transformedFields),
+            changedBy: req.users.id,
+          },
+          { transaction }
+        );
+
+        await transaction.commit();
+
+        return Helper.response(
+          "success",
+          "Managedirectory Data Added successfully",
+          documentdt,
+          res,
+          200
+        );
+      } catch (error) {
+        await transaction.rollback();
+        console.error("Error processing request:", error);
         return Helper.response(
           "failed",
-          `Error: ${emptyField[0]} cannot be empty!`,
-          null,
+          error?.message || "An unexpected error occurred",
+          { error },
           res,
           200
         );
       }
-      transformedFields["created_by"] = req.users.id;
-      transformedFields["createdAt"] = new Date();
-      transformedFields["status"] ='ACTIVE'
-      console.log(transformedFields, "transformfieldss");
-
-      // Validate email, phone, and aadhaar
-    const [emailExists, phoneExists] = await Promise.all([
-      managedirectory.count({ where: { email: transformedFields.email } }),
-      managedirectory.count({ where: { phone: transformedFields.phone } }),
-    ]);
-    if (emailExists)
-      return Helper.response("failed", "Email already exists", {}, res, 200);
-    if (phoneExists)
-      return Helper.response(
-        "failed",
-        "Mobile number already exists",
-        {},
-        res,
-        200
-      );
-
-      // const convertDataToArray = (data) => {
-      //   return [
-      //     {
-      //       first_name: data.en_first_name,
-      //       last_name: data.en_last_name,
-      //       // phone: JSON.stringify(JSON.parse(data.phone)), // Fix JSON format
-      //       // email: JSON.stringify(JSON.parse(data.email)),
-      //       phone: data.phone, // Fix JSON format
-      //       email: data.email,
-      //       order: data.order,
-      //       designation: data.en_designation,
-      //       // address: data.address,
-      //       intercome: data.intercome,
-      //       created_by: data.created_by,
-      //       status: "ACTIVE",
-      //       lang: "en",
-      //     },
-      //     {
-      //       first_name: data.hn_first_name,
-      //       last_name: data.hn_last_name,
-      //       // phone: JSON.stringify(JSON.parse(data.phone)), // Fix JSON format
-      //       // email: JSON.stringify(JSON.parse(data.email)),
-      //       phone: data.phone, // Fix JSON format
-      //       email: data.email,
-      //       order: data.order,
-      //       designation: data.hn_designation,
-      //       // address: data.address,
-      //       intercome: data.intercome,
-      //       created_by: data.created_by,
-      //       status: "ACTIVE",
-      //       lang: "hn",
-      //     },
-      //   ];
-      // };
-
-    
-
-      const documentdt = await managedirectory.create(transformedFields, {
-        transaction,
-      });
-      const baseUploadDir = `documents`;
-      for (const field in files) {
-        if (files[field]?.[0]) {
-          const result = await moveFile(
-            files[field][0],
-            baseUploadDir,
-            documentdt.id
-          );
-
-          if (result.error) {
-            await transaction.rollback(); // Rollback transaction if file upload fails
-            return Helper.response("failed", result.error, null, res, 200);
-          }
-
-          if (typeof result.filePath === "string") {
-            transformedFields[field] = path.basename(result.filePath);
-          }
-        }
-      }
-
-      await managedirectory.update(transformedFields, {
-        where: { id: documentdt.id },
-        transaction,
-      });
-
-      await transaction.commit();
-      return Helper.response(
-        "success",
-        "Managedirectory Data Added successfully",
-        documentdt,
-        res,
-        200
-      );
     });
   } catch (error) {
-    console.log(error);
-    await transaction.rollback();
+    console.error("Transaction error:", error);
     return Helper.response(
       "failed",
-      error?.errors?.[0]?.message || "An unexpected error occurred",
+      "Server error occurred",
       { error },
       res,
       200
@@ -829,9 +889,10 @@ exports.updatemangedirectory = async (req, res) => {
         tableName: "managedirectory",
         recordId: transformedFields.id,
         action: "UPDATE",
+        module:transformedFields?.module,
         oldData: originalData?.toJSON(),
         newData: updatedData?.toJSON(),
-        changedBy: req.users.id,
+        createdBy: req.users.id,
       });
 
       return Helper.response(
@@ -947,10 +1008,11 @@ exports.addvedio = async (req, res) => {
       await log.create({
         tableName: "document",
         recordId: uploadvedio.id,
+        module:obj?.module,
         action: "CREATE",
         oldData: JSON.stringify(obj),
         newData: JSON.stringify(obj),
-        changedBy: req.users.id,
+        createdBy: req.users.id,
       });
 
       return Helper.response(
@@ -1054,7 +1116,7 @@ exports.addvedio = async (req, res) => {
 //         action: "UPDATE",
 //         oldData: originalData.toJSON(),
 //         newData: updatedData.toJSON(),
-//         changedBy: req.users.id,
+//         createdBy: req.users.id,
 //       });
 
 //       return Helper.response(
@@ -1184,7 +1246,22 @@ exports.uploaddocument = async (req, res) => {
         });
       }
 
-      await transaction.commit();
+      if (documentdt) {
+        // **Log Entry**
+        await log.create(
+          {
+            tableName: "menu",
+            recordId: documentdt.id,
+            module:transformedFields.module,
+            action: "CREATE",
+            oldData: JSON.stringify(transformedFields),
+            newData: JSON.stringify(transformedFields),
+            createdBy: req.users.id,
+          },
+          { transaction }
+        );
+
+        await transaction.commit();
       return Helper.response(
         "success",
         "Document uploaded successfully",
@@ -1192,6 +1269,9 @@ exports.uploaddocument = async (req, res) => {
         res,
         200
       );
+      }
+
+     
     });
   } catch (error) {
     await transaction.rollback();
@@ -1245,16 +1325,17 @@ exports.updatevediodata = async (req, res) => {
       });
       await transaction.commit(); // Commit transaction
 
-      // if (createMenu) {
+      if (createMenu) {
        
-      //   await log.create({
-      //     tableName: "document",
-      //     recordId: createMenu.id,
-      //     action: "UPDATE",
-      //     oldData: JSON.stringify(obj),
-      //     newData: JSON.stringify(obj),
-      //     changedBy: req.users.id,
-      //   });
+        await log.create({
+          tableName: "document",
+          recordId: createMenu[0],
+          module:obj?.module,
+          action: "UPDATE",
+          oldData: JSON.stringify(obj),
+          newData: JSON.stringify(obj),
+          createdBy: req.users.id,
+        });
 
         return Helper.response(
           "success",
@@ -1263,7 +1344,7 @@ exports.updatevediodata = async (req, res) => {
           res,
           200
         );
-      // }
+      }
  
   } catch (error) {
     console.error("Error creating menu:", error);
@@ -1316,16 +1397,17 @@ exports.updatevediostatus = async (req, res) => {
       });
       await transaction.commit(); // Commit transaction
 
-      // if (createMenu) {
+      if (createMenu) {
        
-      //   await log.create({
-      //     tableName: "document",
-      //     recordId: createMenu.id,
-      //     action: "UPDATE",
-      //     oldData: JSON.stringify(obj),
-      //     newData: JSON.stringify(obj),
-      //     changedBy: req.users.id,
-      //   });
+        await log.create({
+          tableName: "document",
+          recordId: createMenu.id,
+          module:obj?.module,
+          action: "UPDATE",
+          oldData: JSON.stringify(obj),
+          newData: JSON.stringify(obj),
+          createdBy: req.users.id,
+        });
 
         return Helper.response(
           "success",
@@ -1334,7 +1416,7 @@ exports.updatevediostatus = async (req, res) => {
           res,
           200
         );
-      // }
+      }
  
   } catch (error) {
     console.error("Error creating menu:", error);
@@ -1436,3 +1518,161 @@ exports.getmenudata = async (req, res) => {
     return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
   }
 };
+
+exports.uploadpages=async(req,res)=>{
+    const transaction = await sequelize.transaction();
+    try {
+      const form = new formidable.IncomingForm();
+      form.parse(req, async (err, fields, files) => {
+        if (err)
+          return Helper.response("failed", "Error parsing form", err, res, 200);
+  
+        const transformedFields = Object.fromEntries(
+          Object.entries(fields).map(([key, value]) => [key, value[0]?.trim()])
+        );
+        const emptyField = Object.entries(transformedFields).find(
+          ([key, value]) => !value
+        );
+  
+        if (emptyField) {
+          await transaction.rollback();
+          return Helper.response(
+            "failed",
+            `Error: ${emptyField[0]} cannot be empty!`,
+            null,
+            res,
+            200
+          );
+        }
+  
+        const documentdt = await uploadpagedoc.create(
+          {
+            ...transformedFields,
+            created_by: req.users.id,
+            createdAt: new Date(),
+          },
+          { transaction }
+        );
+        const baseUploadDir = `uploadpagedoc`;
+        if (files.type != "vedio") {
+          for (const field in files) {
+            if (files[field]?.[0]) {
+              const result = await moveFile(files[field][0],baseUploadDir,documentdt.id);
+  
+              if (result.error) {
+                await transaction.rollback(); // Rollback transaction if file upload fails
+                return Helper.response("failed", result.error, null, res, 200);
+              }
+  
+              if (typeof result.filePath === "string") {
+                transformedFields[field] = path.basename(result.filePath);
+              }
+            }
+          }
+  
+          await uploadpagedoc.update(transformedFields, {
+            where: { id: documentdt.id },
+            transaction,
+          });
+        }
+  
+        if (documentdt) {
+          // **Log Entry**
+          await log.create(
+            {
+              tableName: "menu",
+              recordId: documentdt.id,
+              module:transformedFields.module,
+              action: "CREATE",
+              oldData: JSON.stringify(transformedFields),
+              newData: JSON.stringify(transformedFields),
+              createdBy: req.users.id,
+            },
+            { transaction }
+          );
+  
+          await transaction.commit();
+        return Helper.response(
+          "success",
+          "Document uploaded successfully",
+          documentdt,
+          res,
+          200
+        );
+        }
+  
+       
+      });
+    } catch (error) {
+      await transaction.rollback();
+      return Helper.response(
+        "failed",
+        error.message || "Something went wrong",
+        {},
+        res,
+        200
+      );
+    }
+
+  
+
+}
+
+exports.getuploadpages=async(req,res)=>{
+    try {
+      const documentdata = (
+        await uploadpagedoc.findAll({
+          attributes: [
+            "id",
+            "image_alt",
+            "hn_image_alt",
+            "order",
+            "document",
+            "status",
+            "createdAt",
+          ],
+          where: {
+            doc_type: {
+              [Op.or]: {
+                [Op.is]: null, 
+                [Op.eq]: ""    
+              }
+            }
+          },
+          order: [["createdAt", "ASC"]],
+        })
+      ).map((item) => item.toJSON());
+      if (documentdata.length > 0) {
+        const sortedData = documentdata
+          .filter((item) => item.status === true || item.status === false)
+          .sort((a, b) => {
+            if (a.order === b.order) {
+              return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
+            }
+            return a.order - b.order; // Sort by order
+          });
+  
+        console.log(sortedData);
+        return Helper.response(
+          "success",
+          "data found Successfully",
+          { tableData: sortedData },
+          res,
+          200
+        );
+      } else {
+        return Helper.response("failed", "No data found", null, res, 200);
+      }
+    } catch (error) {
+      return Helper.response(
+        "failed",
+        error.message || "Something went wrong",
+        {},
+        res,
+        200
+      );
+    
+  };
+
+
+}

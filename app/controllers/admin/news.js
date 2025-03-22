@@ -11,7 +11,8 @@ const fileType = require("file-type");
 const log = require("../../models/log");
 const managedirectory = require("../../models/managedirectory");
 const news = require("../../models/news");
-
+const Op=require('sequelize')
+// const log= require('../../models/log')
 async function moveFile(file, baseUploadDir, userId) {
   try {
     await fs.promises.mkdir(baseUploadDir, { recursive: true });
@@ -105,7 +106,6 @@ exports.addnews = async (req, res) => {
       }
       transformedFields["created_by"] = req.users.id;
       transformedFields["createdAt"] = new Date();
-      transformedFields["status"] = "ACTIVE";
       console.log(transformedFields, "transformfieldss");
 
       const data = await news.count({
@@ -115,7 +115,7 @@ exports.addnews = async (req, res) => {
           hn_title: transformedFields.hn_title,
           title: transformedFields.title,
           description: transformedFields.description,
-          hn_description: transformedFields.hn_description,
+          hn_description: transformedFields?.hn_description,
         },
       });
       let documentdt;
@@ -153,14 +153,31 @@ exports.addnews = async (req, res) => {
         transaction,
       });
 
-      await transaction.commit();
-      return Helper.response(
-        "success",
-        "News Added successfully",
-        documentdt,
-        res,
-        200
-      );
+
+      if (documentdt) {
+        // **Log Entry**
+        await log.create(
+          {
+            tableName: "news",
+            recordId: documentdt.id,
+            module:transformedFields.module,
+            action: "CREATE",
+            oldData: JSON.stringify(transformedFields),
+            newData: JSON.stringify(transformedFields),
+            createdBy: req.users.id,
+          },
+          { transaction }
+        );
+        await transaction.commit();
+        return Helper.response(
+          "success",
+          "News Added successfully",
+          documentdt,
+          res,
+          200
+        );
+      }
+      
     });
   } catch (error) {
     console.log(error);
@@ -186,16 +203,17 @@ exports.genewslist = async (req, res) => {
           "heading",
           "hn_title",
           "title",
+          "size",
+          "doc_format",
+          "date",
           "document",
           "hn_description",
           "description",
-          "lang",
+          "doc_lang",
           "status",
           "createdAt",
         ],
-        where: {
-          lang: lang,
-        },
+       
         order: [["createdAt", "desc"]],
       })
     ).map((item) => item.toJSON());
@@ -315,10 +333,11 @@ exports.updatenews = async (req, res) => {
       await log.create({
         tableName: "news",
         recordId: transformedFields.id,
+        module:transformedFields?.module,
         action: "UPDATE",
         oldData: originalData?.toJSON(),
         newData: updatedData?.toJSON(),
-        changedBy: req.users.id,
+        createdBy: req.users.id,
       });
 
       return Helper.response(

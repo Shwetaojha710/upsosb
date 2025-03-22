@@ -95,4 +95,200 @@ exports.gethtmldata = async (req, res) => {
   }
 };
 
+exports.getpublichomebannerImage = async (req, res) => {
+  try {
+    const documentdata = (
+      await document.findAll({
+        where:{
+          status:true
+        },
+        attributes: ["id", "image_alt", "order", "banner_image", "status"],
+        order: [["createdAt", "ASC"]],
+      })
+    ).map((item) => item.toJSON());
+    if (documentdata.length > 0) {
+      const sortedData = documentdata
+        .filter((item) => item.status === true || item.status === false)
+        .sort((a, b) => {
+          if (a.order === b.order) {
+            return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
+          }
+          return a.order - b.order; // Sort by order
+        });
+      let data = sortedData.map((item) => {
+        data.push({
+          image_alt: item.image_alt,
+          banner_image: item.banner_image,
+        });
+      });
+
+      console.log(data);
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        data,
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
+
+
+exports.geturldata = async (req, res) => {
+  try {
+    const documentdata = (
+      await menu.findAll({
+        where:{
+          status:true
+        },
+        attributes: ["id", "image_alt", "order", "banner_image", "status"],
+        order: [["createdAt", "ASC"]],
+      })
+    ).map((item) => item.toJSON());
+    if (documentdata.length > 0) {
+      const sortedData = documentdata
+        .filter((item) => item.status === true || item.status === false)
+        .sort((a, b) => {
+          if (a.order === b.order) {
+            return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
+          }
+          return a.order - b.order; // Sort by order
+        });
+      let data = sortedData.map((item) => {
+        data.push({
+          image_alt: item.image_alt,
+          banner_image: item.banner_image,
+        });
+      });
+
+      console.log(data);
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        data,
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
+
+
+
+exports.getpublicgallerydocument = async (req, res) => {
+  try {
+    console.log(req.body);
+    const lang = req.headers?.language === "hn" ? "hn" : "en"; 
+   
+    let type = req?.body?.doc_type|| null;
+   
+      // Determine the language-specific columns dynamically
+   const languageColumns = lang === "hn"? ["hn_image_title", "hn_image_alt"]: ["image_title", "image_alt"];
+      const documentdata = (await document.findAll({
+        attributes: [
+          "id",
+          ...languageColumns,
+          "order",
+          "banner_image",
+          "status",
+          "createdAt"],
+        order: [["createdAt", "ASC"]],
+        where: {
+          doc_type: type,
+        },
+      })
+    ).map((item) => item.toJSON());
+    if (documentdata.length > 0) {
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        { tableData: documentdata },
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+    
+    
+
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
+
+exports.getpublicvideodocument = async (req, res) => {
+  try {
+    console.log(req.body);
+    const lang = req.headers?.language === "hn" ? "hn" : "en"; 
+   
+    let type = req?.body?.doc_type|| null;
+   
+      // Determine the language-specific columns dynamically
+   const languageColumns = lang === "hn"? ["hn_image_title", "hn_image_alt"]: ["image_title", "image_alt"];
+      const documentdata = (await document.findAll({
+        attributes: [
+          "id",
+          ...languageColumns,
+          "order",
+          "banner_image",
+          "status",
+          "createdAt"],
+        order: [["createdAt", "ASC"]],
+        where: {
+          doc_type: type,
+        },
+      })
+    ).map((item) => item.toJSON());
+    if (documentdata.length > 0) {
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        { tableData: documentdata },
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+    
+    
+
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
 

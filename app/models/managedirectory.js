@@ -82,6 +82,10 @@ const managedirectory = sequelize.define("managedirectory", {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    size: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     intercome: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -115,6 +119,7 @@ managedirectory.afterCreate(async (managedirectorys,options)=>{
     await log.create({
         tableName: "managedirectory",
         recordId: managedirectorys.id,
+        module:managedirectorys?.module,
         action: "CREATE",
         oldData: managedirectorys.toJSON(),
         newData: null,
@@ -128,6 +133,7 @@ managedirectory.beforeUpdate(async (user, options) => {
     await log.create({
         tableName: "managedirectory",
         recordId: user.id,
+        module:user?.module,
         action: "UPDATE",
         oldData: originalData.toJSON(),
         newData: user.toJSON(),
@@ -140,6 +146,7 @@ managedirectory.beforeDestroy(async (user, options) => {
     await log.create({
         tableName: "managedirectory",
         recordId: user.id,
+        module:user?.module,
         action: "DELETE",
         oldData: user.toJSON(),
         newData: null,
