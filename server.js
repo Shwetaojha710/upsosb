@@ -20,6 +20,7 @@ const tender=require('./app/models/tender')
 const orgnazilation = require('./app/models/organizational')
 const news= require('./app/models/news')
 const uploadpagedoc=require('./app/models/uploadpagedoc')
+const feedback = require('./app/models/feedback')
 sequelize.sync({ force: false }) // `force: true` will drop tables and recreate them
   .then(() => {
     console.log('Database & tables synced!');
@@ -29,6 +30,8 @@ sequelize.sync({ force: false }) // `force: true` will drop tables and recreate 
   });
 app.use(express.static("documents"));
 app.use('/documents', express.static(path.join(__dirname, 'documents')));
+app.use(express.static("uploadpagedoc"));
+app.use('/uploadpagedoc', express.static(path.join(__dirname, 'uploadpagedoc')));
 const blockedIPs = new Set();
 app.use(express.text({ type: 'text/html' })); 
 // app.use(async (req, res, next) => {

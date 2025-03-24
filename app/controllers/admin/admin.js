@@ -14,53 +14,61 @@ const tender = require("../../models/tender");
 const { Op } = require("sequelize");
 const { col } = require("sequelize");
 const uploadpagedoc = require("../../models/uploadpagedoc");
-async function moveFile(file, baseUploadDir, userId) {
-  try {
-    await fs.promises.mkdir(baseUploadDir, { recursive: true });
+const feedback = require("../../models/feedback");
+    async function moveFile(file, baseUploadDir, userId) {
+      try {
+        await fs.promises.mkdir(baseUploadDir, { recursive: true });
 
-    const buffer = await fs.promises.readFile(file.filepath);
-    const detectedType = await fileType.fromBuffer(buffer);
-    const allowedTypes = {
-      "image/png": "png",
-      "image/jpeg": "jpg",
-      "image/jpg": "jpg",
-      "video/mp4": "mp4",
-      "text/plain": "txt",
-      "application/pdf": "pdf",
-      "application/msword": "doc",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        "docx",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        "docx",
-      "application/vnd.ms-excel": ".xls",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-        ".xlsx",
-    };
+        const buffer = await fs.promises.readFile(file.filepath);
+        const detectedType = await fileType.fromBuffer(buffer);
+        const allowedTypes = {
+          "image/png": "png",
+          "image/jpeg": "jpg",
+          "image/jpg": "jpg",
+          "video/mp4": "mp4",
+          "text/plain": "txt",
+          "application/pdf": "pdf",
+          "application/msword": "doc",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            "docx",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            "docx",
+          "application/vnd.ms-excel": ".xls",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            ".xlsx",
+        };
 
-    if (!detectedType || !allowedTypes[detectedType.mime]) {
-      return { error: `Invalid file type.` };
+        if (!detectedType || !allowedTypes[detectedType.mime]) {
+          return { error: `Invalid file type.` };
+        }
+
+        const correctExtension = allowedTypes[detectedType.mime];
+        if (
+          path.extname(file.originalFilename).slice(1).toLocaleLowerCase() !==
+          correctExtension
+        ) {
+          return { error: `File extension does not match file content.` };
+        }
+
+        const filePath = path.join(
+          baseUploadDir,
+          `${userId}_${Date.now()}.${correctExtension}`
+        );
+        await fs.promises.rename(file.filepath, filePath);
+    // Get the file size using fs.promises.stat
+    const stats = await fs.promises.stat(filePath);
+    const fileSizeInBytes = stats.size;
+
+    // Convert size from bytes to kilobytes (KB)
+    const fileSize = (fileSizeInBytes / 1024).toFixed(0); // Rounded to 2 decimal places
+
+
+        return { filePath,fileSize };
+      } catch (error) {
+        console.error(`File move error:`, error.message);
+        return { error: error.message };
+      }
     }
-
-    const correctExtension = allowedTypes[detectedType.mime];
-    if (
-      path.extname(file.originalFilename).slice(1).toLocaleLowerCase() !==
-      correctExtension
-    ) {
-      return { error: `File extension does not match file content.` };
-    }
-
-    const filePath = path.join(
-      baseUploadDir,
-      `${userId}_${Date.now()}.${correctExtension}`
-    );
-    await fs.promises.rename(file.filepath, filePath);
-
-    return { filePath };
-  } catch (error) {
-    console.error(`File move error:`, error.message);
-    return { error: error.message };
-  }
-}
 
 const copyFile = async (sourcePath, destFolder, userId) => {
   const folderPath = path.join(process.cwd(), destFolder);
@@ -154,7 +162,7 @@ exports.createmenu = async (req, res) => {
 
 exports.menudata = async (req, res) => {
   try {
-    const lang = req.headers?.lang === "hn" ? "hn_name" : "en_name";
+    const lang = req.headers?.language === "hn" ? "hn_menu" : "menu";
     const menudata = (
       await menu.findAll({
         where: {
@@ -164,7 +172,7 @@ exports.menudata = async (req, res) => {
           "id",
           "parent_id",
           [lang, "label"],
-          "type",
+          "page_type",
           "page_url",
           "status",
         ],
@@ -172,37 +180,61 @@ exports.menudata = async (req, res) => {
       })
     ).map((item) => item.toJSON());
     if (menudata.length > 0) {
+
+       // Create a map for quick lookup
+       const map = {};
+       menudata.forEach((item) => {
+         map[item.id] = { ...item, submenu: [] };
+       });
+ 
+       //  Build the tree structure
+       let tree = [];
+       menudata.forEach((item) => {
+         if (item.parent_id !== 0) {
+           map[item.parent_id]?.submenu.push(map[item.id]);
+         } else {
+           tree.push(map[item.id]);
+         }
+       });
+       tree = tree.map((item) => {
+         if (Array.isArray(item.submenu) && item.submenu.length === 0) {
+           delete item.submenu;
+         }
+         return item;
+       });
+ 
+
       // Create a map for quick lookup
-      const map = {};
-      menudata.forEach((item) => {
-        map[item.id] = { ...item, submenu: [] };
-      });
+      // const map = {};
+      // menudata.forEach((item) => {
+      //   map[item.id] = { ...item, submenu: [] };
+      // });
 
-      //  Build the tree structure
-      let tree = [];
-      menudata.forEach((item) => {
-        if (item.parent_id !== 0) {
-          map[item.parent_id]?.submenu.push({
-            label: map[item.id]["label"],
-            url: map[item.id]["page_url"],
-          });
-        } else {
-          tree.push({
-            label: map[item.id]["label"],
-            url: map[item.id]["page_url"],
-            submenu: map[item.id]["submenu"],
-          });
-        }
-      });
-      tree = tree.map((item) => {
-        if (Array.isArray(item.submenu) && item.submenu.length === 0) {
-          delete item.submenu;
-        }
-        return item;
-      });
+      // //  Build the tree structure
+      // let tree = [];
+      // menudata.forEach((item) => {
+      //   if (item.parent_id !== 0) {
+      //     map[item.parent_id]?.submenu.push({
+      //       label: map[item.id]["label"],
+      //       url: map[item.id]["page_url"],
+      //     });
+      //   } else {
+      //     tree.push({
+      //       label: map[item.id]["label"],
+      //       url: map[item.id]["page_url"],
+      //       submenu: map[item.id]["submenu"],
+      //     });
+      //   }
+      // });
+      // tree = tree.map((item) => {
+      //   if (Array.isArray(item.submenu) && item.submenu.length === 0) {
+      //     delete item.submenu;
+      //   }
+      //   return item;
+      // });
 
-      //  Output the nested structure
-      // console.log(JSON.stringify(tree, null, 2));
+      // //  Output the nested structure
+      // // console.log(JSON.stringify(tree, null, 2));
 
       return Helper.response(
         "success",
@@ -265,7 +297,7 @@ exports.updatemenu = async (req, res) => {
       await transaction.rollback();
       return Helper.response("failed", "Menu already exists", null, res, 200);
     }
-
+    console.log(obj,"update menu objects ")
     let updateMenu = await menu.update(obj, {
       where: { id: obj.id },
       transaction,
@@ -584,6 +616,8 @@ exports.updatedocumentdata = async (req, res) => {
               return Helper.response("failed", result.error, null, res, 200);
             }
             transformedFields[field] = path.basename(result.filePath);
+            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+            // transformedFields['doc_type']=(files[field]?.[0]['mimetype'].split('/'))[0]
           }
         }
         await document.update(transformedFields, {
@@ -763,6 +797,8 @@ exports.addmangedirectory = async (req, res) => {
 
             if (typeof result.filePath === "string") {
               transformedFields[field] = path.basename(result.filePath);
+              transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+              // transformedFields['doc_type']=(files[field]?.[0]['mimetype'].split('/'))[0]
             }
           }
         }
@@ -873,6 +909,7 @@ exports.updatemangedirectory = async (req, res) => {
               return Helper.response("failed", result.error, null, res, 200);
             }
             transformedFields[field] = path.basename(result.filePath);
+            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
           }
         }
         await managedirectory.update(transformedFields, {
@@ -1236,6 +1273,7 @@ exports.uploaddocument = async (req, res) => {
 
             if (typeof result.filePath === "string") {
               transformedFields[field] = path.basename(result.filePath);
+              transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
             }
           }
         }
@@ -1544,7 +1582,7 @@ exports.uploadpages=async(req,res)=>{
             200
           );
         }
-  
+        transformedFields['status']=1
         const documentdt = await uploadpagedoc.create(
           {
             ...transformedFields,
@@ -1566,6 +1604,8 @@ exports.uploadpages=async(req,res)=>{
   
               if (typeof result.filePath === "string") {
                 transformedFields[field] = path.basename(result.filePath);
+                transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+                transformedFields['doc_type']=(files[field]?.[0]['mimetype'].split('/'))[0]
               }
             }
           }
@@ -1626,37 +1666,21 @@ exports.getuploadpages=async(req,res)=>{
             "id",
             "image_alt",
             "hn_image_alt",
-            "order",
             "document",
-            "status",
             "createdAt",
           ],
-          where: {
-            doc_type: {
-              [Op.or]: {
-                [Op.is]: null, 
-                [Op.eq]: ""    
-              }
-            }
-          },
+       
           order: [["createdAt", "ASC"]],
         })
       ).map((item) => item.toJSON());
       if (documentdata.length > 0) {
-        const sortedData = documentdata
-          .filter((item) => item.status === true || item.status === false)
-          .sort((a, b) => {
-            if (a.order === b.order) {
-              return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
-            }
-            return a.order - b.order; // Sort by order
-          });
+     
   
-        console.log(sortedData);
+ 
         return Helper.response(
           "success",
           "data found Successfully",
-          { tableData: sortedData },
+          { tableData: documentdata },
           res,
           200
         );
@@ -1676,3 +1700,109 @@ exports.getuploadpages=async(req,res)=>{
 
 
 }
+
+exports.deletepage=async(req,res)=>{
+  const transaction = await sequelize.transaction();
+  try {
+
+    const originalData = await uploadpagedoc.findByPk(req.body.id);
+    if (!originalData) {
+      await transaction.rollback();
+      return Helper.response("failed", "Document not found!", {}, res, 200);
+    }
+
+    const deletepage = await uploadpagedoc.destroy({ where: { id: req.body.id }, transaction });
+
+    if (deletepage) {
+
+      const folderPath = path.join(path.dirname(__dirname), '..', '..',   'uploadpagedoc', originalData.document);
+  
+      if (fs.existsSync(folderPath)) {
+        const stats = fs.statSync(folderPath);
+      
+        if (stats.isDirectory()) {
+       
+          fs.rmdirSync(folderPath, { recursive: true });
+          console.log('Directory deleted successfully');
+        } else if (stats.isFile()) {
+
+          fs.unlinkSync(folderPath);
+          console.log('File deleted successfully');
+        } else {
+          console.log('The path is neither a file nor a directory');
+        }
+      } else {
+        console.log('The specified path does not exist');
+      }
+      await transaction.commit();
+
+      await log.create(
+        {
+          tableName: "uploadpagedoc",
+          recordId: originalData.id,  
+          module: req.body?.module,
+          action: "DELETE",
+          oldData: originalData.toJSON(),
+          newData: originalData.toJSON(),
+          updated_by: req.users.id,
+        }
+      );
+
+      return Helper.response("success", "Successfully deleted", {}, res, 200);
+    } else {
+   
+      await transaction.rollback();
+      return Helper.response("failed", "Failed to delete the document", {}, res, 200);
+    }
+  } catch (error) {
+
+    await transaction.rollback();
+    return Helper.response("failed", error.message || "Something went wrong", {}, res, 200);
+  }
+};
+
+exports.getfeedbacklist=async(req,res)=>{
+  try {
+    const documentdata = (
+      await feedback.findAll({
+        attributes: [
+          "id",
+          "first_name",
+          "last_name",
+          "phone",
+          "email",
+          "feedback"
+        ],
+     
+        order: [["createdAt", "ASC"]],
+      })
+    ).map((item) => item.toJSON());
+    if (documentdata.length > 0) {
+  
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        { tableData: documentdata },
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  
+};
+
+
+}
+
+
+
+

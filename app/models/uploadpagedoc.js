@@ -31,10 +31,6 @@ const uploadpagedoc = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    order: {
-      type: DataTypes.BIGINT,
-      allowNull: true,
-    },
     status: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -81,16 +77,16 @@ uploadpagedoc.afterCreate(async (uploadpagedocs, options) => {
 //   });
 // });
 
-// document.beforeDestroy(async (documents, options) => {
-//   await log.create({
-//       tableName: "documents",
-//       recordId: documents.id,
-//       module:documents.mdoule,
-//       action: "DELETE",
-//       oldData: documents.toJSON(),
-//       newData: null,
-//       createdBy: documents.id || "System",
-//   });
-// });
+uploadpagedoc.beforeDestroy(async (uploadpagedocs, options) => {
+  await log.create({
+      tableName: "uploadpagedocs",
+      recordId: uploadpagedocs.id,
+      module:uploadpagedocs.mdoule,
+      action: "DELETE",
+      oldData: uploadpagedocs.toJSON(),
+      newData: null,
+      createdBy: uploadpagedocs.id || "System",
+  });
+});
 
 module.exports = uploadpagedoc;

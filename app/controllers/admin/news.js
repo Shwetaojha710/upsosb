@@ -53,8 +53,15 @@ async function moveFile(file, baseUploadDir, userId) {
       `${userId}_${Date.now()}.${correctExtension}`
     );
     await fs.promises.rename(file.filepath, filePath);
+  // Get the file size using fs.promises.stat
+    const stats = await fs.promises.stat(filePath);
+    const fileSizeInBytes = stats.size;
 
-    return { filePath };
+    // Convert size from bytes to kilobytes (KB)
+    const fileSize = (fileSizeInBytes / 1024).toFixed(0); // Rounded to 2 decimal places
+
+
+     return { filePath,fileSize };
   } catch (error) {
     console.error(`File move error:`, error.message);
     return { error: error.message };
@@ -144,6 +151,7 @@ exports.addnews = async (req, res) => {
 
           if (typeof result.filePath === "string") {
             transformedFields[field] = path.basename(result.filePath);
+            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
           }
         }
       }
@@ -308,16 +316,13 @@ exports.updatenews = async (req, res) => {
       if (files.type !== "vedio") {
         for (const field in files) {
           if (files[field]?.[0]) {
-            const result = await moveFile(
-              files[field][0],
-              `documents`,
-              transformedFields.id
-            );
+            const result = await moveFile(files[field][0],`documents`,transformedFields.id);
             if (result.error) {
               await transaction.rollback();
               return Helper.response("failed", result.error, null, res, 200);
             }
             transformedFields[field] = path.basename(result.filePath);
+            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
           }
         }
         await news.update(transformedFields, {

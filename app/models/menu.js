@@ -16,6 +16,10 @@ const menu = sequelize.define("menu", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  slug: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   hn_menu: {
     type: DataTypes.STRING,
     allowNull: false,

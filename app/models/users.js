@@ -90,7 +90,7 @@ const users = sequelize.define("users", {
         defaultValue: "admin",
     },    
     created_by: {
-        type: DataTypes.UUID, 
+        type: DataTypes.BIGINT, 
         allowNull: false,
     },
     status: {

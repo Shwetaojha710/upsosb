@@ -7,11 +7,11 @@ const path = require("path");
 const mime = require("mime-types");
 const fileType = require("file-type");
 const page = require("../../models/pages");
-const log=require('../../models/log')
+const log = require("../../models/log");
+const feedback = require("../../models/feedback");
 exports.createhtmldata = async (req, res) => {
-  const transaction = await sequelize.transaction(); 
+  const transaction = await sequelize.transaction();
   try {
-
     // const obj = JSON.parse(req.body);
     const obj = req.body;
 
@@ -38,7 +38,7 @@ exports.createhtmldata = async (req, res) => {
     // Create Data
     const createpage = await page.create(obj, { transaction });
     if (createpage) {
-      await transaction.commit(); 
+      await transaction.commit();
       await log.create({
         tableName: "page",
         recordId: createpage.id,
@@ -47,7 +47,7 @@ exports.createhtmldata = async (req, res) => {
         newData: JSON.stringify(obj),
         changedBy: req.users.id,
       });
-      
+
       return Helper.response(
         "success",
         "Data Created Successfully",
@@ -58,7 +58,7 @@ exports.createhtmldata = async (req, res) => {
     }
   } catch (error) {
     console.error("Error creating HTML data:", error);
-    await transaction.rollback(); 
+    await transaction.rollback();
     return Helper.response(
       "failed",
       error?.message || "Something went wrong",
@@ -70,20 +70,23 @@ exports.createhtmldata = async (req, res) => {
 };
 
 exports.gethtmldata = async (req, res) => {
-
   try {
-   
     const createpage = await page.findAll({
-      order: [["id", "DESC"]]
-    })
-    
-    if (createpage.length>0) {
-      return Helper.response("success", "Data found Successfully", {tableData:createpage},res, 200);
-    }else{
+      order: [["id", "DESC"]],
+    });
+
+    if (createpage.length > 0) {
+      return Helper.response(
+        "success",
+        "Data found Successfully",
+        { tableData: createpage },
+        res,
+        200
+      );
+    } else {
       return Helper.response("failed", "No data found", null, res, 200);
     }
   } catch (error) {
-   
     console.error("Error creating HTML data:", error);
     return Helper.response(
       "failed",
@@ -99,8 +102,8 @@ exports.getpublichomebannerImage = async (req, res) => {
   try {
     const documentdata = (
       await document.findAll({
-        where:{
-          status:true
+        where: {
+          status: true,
         },
         attributes: ["id", "image_alt", "order", "banner_image", "status"],
         order: [["createdAt", "ASC"]],
@@ -143,14 +146,13 @@ exports.getpublichomebannerImage = async (req, res) => {
     );
   }
 };
-
 
 exports.geturldata = async (req, res) => {
   try {
     const documentdata = (
       await menu.findAll({
-        where:{
-          status:true
+        where: {
+          status: true,
         },
         attributes: ["id", "image_alt", "order", "banner_image", "status"],
         order: [["createdAt", "ASC"]],
@@ -194,25 +196,28 @@ exports.geturldata = async (req, res) => {
   }
 };
 
-
-
 exports.getpublicgallerydocument = async (req, res) => {
   try {
     console.log(req.body);
-    const lang = req.headers?.language === "hn" ? "hn" : "en"; 
-   
-    let type = req?.body?.doc_type|| null;
-   
-      // Determine the language-specific columns dynamically
-   const languageColumns = lang === "hn"? ["hn_image_title", "hn_image_alt"]: ["image_title", "image_alt"];
-      const documentdata = (await document.findAll({
+    const lang = req.headers?.language === "hn" ? "hn" : "en";
+
+    let type = req?.body?.doc_type || null;
+
+    // Determine the language-specific columns dynamically
+    const languageColumns =
+      lang === "hn"
+        ? ["hn_image_title", "hn_image_alt"]
+        : ["image_title", "image_alt"];
+    const documentdata = (
+      await document.findAll({
         attributes: [
           "id",
           ...languageColumns,
           "order",
           "banner_image",
           "status",
-          "createdAt"],
+          "createdAt",
+        ],
         order: [["createdAt", "ASC"]],
         where: {
           doc_type: type,
@@ -230,9 +235,6 @@ exports.getpublicgallerydocument = async (req, res) => {
     } else {
       return Helper.response("failed", "No data found", null, res, 200);
     }
-    
-    
-
   } catch (error) {
     return Helper.response(
       "failed",
@@ -247,20 +249,25 @@ exports.getpublicgallerydocument = async (req, res) => {
 exports.getpublicvideodocument = async (req, res) => {
   try {
     console.log(req.body);
-    const lang = req.headers?.language === "hn" ? "hn" : "en"; 
-   
-    let type = req?.body?.doc_type|| null;
-   
-      // Determine the language-specific columns dynamically
-   const languageColumns = lang === "hn"? ["hn_image_title", "hn_image_alt"]: ["image_title", "image_alt"];
-      const documentdata = (await document.findAll({
+    const lang = req.headers?.language === "hn" ? "hn" : "en";
+
+    let type = req?.body?.doc_type || null;
+
+    // Determine the language-specific columns dynamically
+    const languageColumns =
+      lang === "hn"
+        ? ["hn_image_title", "hn_image_alt"]
+        : ["image_title", "image_alt"];
+    const documentdata = (
+      await document.findAll({
         attributes: [
           "id",
           ...languageColumns,
           "order",
           "banner_image",
           "status",
-          "createdAt"],
+          "createdAt",
+        ],
         order: [["createdAt", "ASC"]],
         where: {
           doc_type: type,
@@ -278,9 +285,6 @@ exports.getpublicvideodocument = async (req, res) => {
     } else {
       return Helper.response("failed", "No data found", null, res, 200);
     }
-    
-    
-
   } catch (error) {
     return Helper.response(
       "failed",
@@ -292,3 +296,113 @@ exports.getpublicvideodocument = async (req, res) => {
   }
 };
 
+exports.getpublicslugdata = async (req, res) => {
+  try {
+    console.log(req.body);
+    const lang = req.headers?.language === "hn" ? "hn" : "en";
+
+    // Determine the language-specific columns dynamically
+    const languageColumns =
+      lang === "hn"
+        ? {
+            description: "hn_description",
+            page_title: "hn_page_title",
+            menu: "hn_menu",
+          }
+        : {
+            description: "description",
+            page_title: "page_title",
+            menu: "menu",
+          };
+
+    // Extract the column values from the languageColumns object
+    const languageColumnValues = Object.values(languageColumns);
+    const documentdata = await menu.findAll({
+      attributes: ["id", ...languageColumnValues, "status", "createdAt"],
+      order: [["createdAt", "ASC"]],
+      where: {
+        slug: req.body?.slug,
+        status: true,
+      },
+    });
+
+    if (documentdata.length > 0) {
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        documentdata,
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
+
+
+exports. createfeedback = async (req, res) => {
+  const transaction = await sequelize.transaction(); // Start transaction
+
+  try {
+    let obj = req.body;
+    obj.language=req.headers?.language
+
+    // **Validation Function**
+    const validateFields = (data) => {
+      for (const key in data) {
+        if (typeof data[key] === "string") {
+          data[key] = data[key].trim(); // Trim spaces before validation
+        }
+        if (data[key] === "" || data[key] === null || data[key] === undefined) {
+          return `Error: ${key} cannot be empty!`;
+        }
+      }
+      return null; // No errors
+    };
+
+    // **Apply Validation**
+    const validationError = validateFields(obj);
+    if (validationError) {
+      await transaction.rollback(); // Rollback if validation fails
+      return Helper.response("failed", validationError, null, res, 200);
+    }
+
+  
+      let createfeedback = await feedback.create(obj, { transaction });
+
+      if (createfeedback) {
+        // **Log Entry**
+        await log.create(
+          {
+            tableName: "feedback",
+            recordId: createfeedback.id,
+            module:obj.module,
+            action: "CREATE",
+            oldData: JSON.stringify(obj),
+            newData: JSON.stringify(obj),
+          
+          },
+          { transaction }
+        );
+        await transaction.commit(); 
+        return Helper.response("success","Feedback Created Successfully",null,res,200);
+      }else{
+          await transaction.rollback();
+        return Helper.response("failed", "feedback error ", null, res, 200);
+      }
+
+  } catch (error) {
+    await transaction.rollback(); // Rollback on error
+    console.error("Error creating menu:", error);
+    return Helper.response("failed", error?.errors?.[0]?.message || "An error occurred", {}, res, 200);
+  }
+};

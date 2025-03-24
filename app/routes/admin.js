@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { createmenu ,uploaddocument, updatedocumentdata, updatedocumentstatus, addmangedirectory, updatemangedirectory, getmangementdirdata, getgallerydocument, getvediodocument, getvediodata, addvedio, updatevediodata, getmenulist, updatevediostatus, getmenudata, updatemenu,updatemenustatus} = require("../controllers/admin/admin");
+const { createmenu ,uploaddocument, updatedocumentdata, updatedocumentstatus, addmangedirectory, updatemangedirectory, getmangementdirdata, getgallerydocument, getvediodocument, getvediodata, addvedio, updatevediodata, getmenulist, updatevediostatus, getmenudata, updatemenu,updatemenustatus, getuploadpages, uploadpages,deletepage, getfeedbacklist} = require("../controllers/admin/admin");
 const { employeeregistration} = require("../controllers/admin/registration");
 const { Admin} = require("../middleware/auth");
 const { createhtmldata } = require("../controllers/public/public");
@@ -36,6 +36,10 @@ router.post('/get-news',Admin,genewslist)
 router.post('/update-news',Admin,updatenews)
 
 
+router.post('/upload-pages',Admin,uploadpages)
+router.post('/get-pages',Admin,getuploadpages)
+router.post('/delete-pages',Admin,deletepage)
+router.post('/get-feedback-list',Admin,getfeedbacklist)
 // publicc
 // router.post('/get-menu-data',menudata)
 // router.post('/get-home-banner-image',gethomebannerImage)
