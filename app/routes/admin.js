@@ -25,5 +25,5 @@ router.post('/get-tender',Admin,getenderlist)
 router.post('/get-menu-data',menudata)
 router.post('/get-home-banner-image',gethomebannerImage)
 router.post('/get-document',getdocument)
-router.post('/get-page',gethtmldata)
+router.post('/get-page',gethtmldata) 
 module.exports = router
