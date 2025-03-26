@@ -21,6 +21,7 @@ const orgnazilation = require('./app/models/organizational')
 const news= require('./app/models/news')
 const uploadpagedoc=require('./app/models/uploadpagedoc')
 const feedback = require('./app/models/feedback')
+const faq = require('./app/models/faq')
 sequelize.sync({ force: false }) // `force: true` will drop tables and recreate them
   .then(() => {
     console.log('Database & tables synced!');

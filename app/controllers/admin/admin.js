@@ -119,7 +119,7 @@ exports.createmenu = async (req, res) => {
       transaction, // Run inside transaction
     });
 
-    if (!existingMenu) {
+    // if (!existingMenu) {
       // **Create Menu**
       let createMenu = await menu.create(obj, { transaction });
 
@@ -147,11 +147,14 @@ exports.createmenu = async (req, res) => {
           res,
           200
         );
+      }else{
+           await transaction.rollback(); // Rollback if menu already exists
+      return Helper.response("failed", "Something Wrong at the time of creation ", null, res, 200);
       }
-    } else {
-      await transaction.rollback(); // Rollback if menu already exists
-      return Helper.response("failed", "Menu already exists", null, res, 200);
-    }
+    // } else {
+    //   await transaction.rollback(); // Rollback if menu already exists
+    //   return Helper.response("failed", "Menu already exists", null, res, 200);
+    // }
   } catch (error) {
     await transaction.rollback(); // Rollback on error
     console.error("Error creating menu:", error);
@@ -162,7 +165,7 @@ exports.createmenu = async (req, res) => {
 
 exports.menudata = async (req, res) => {
   try {
-    const lang = req.headers?.language === "hn" ? "hn_menu" : "menu";
+    const lang = req.headers?.Language === "hn" ? "hn_menu" : "menu";
     const menudata = (
       await menu.findAll({
         where: {
@@ -293,11 +296,10 @@ exports.updatemenu = async (req, res) => {
       transaction,
     });
 
-    if (existingMenu > 0) {
-      await transaction.rollback();
-      return Helper.response("failed", "Menu already exists", null, res, 200);
-    }
-    console.log(obj,"update menu objects ")
+    // if (existingMenu > 0) {
+    //   await transaction.rollback();
+    //   return Helper.response("failed", "Menu already exists", null, res, 200);
+    // }
     let updateMenu = await menu.update(obj, {
       where: { id: obj.id },
       transaction,
@@ -456,7 +458,7 @@ exports.getdocument = async (req, res) => {
           return a.order - b.order; // Sort by order
         });
 
-      console.log(sortedData);
+      // console.log(sortedData);
       return Helper.response(
         "success",
         "data found Successfully",
@@ -480,8 +482,8 @@ exports.getdocument = async (req, res) => {
 
 exports.getgallerydocument = async (req, res) => {
   try {
-    console.log(req.body);
-    const lang = req.headers?.language === "hn" ? "hn" : "en"; 
+    // console.log(req.body);
+    const lang = req.headers?.Language === "hn" ? "hn" : "en"; 
    
     let type = req?.body?.doc_type|| null;
     
@@ -541,7 +543,6 @@ exports.gethomebannerImage = async (req, res) => {
         });
       });
 
-      console.log(data);
       return Helper.response(
         "success",
         "data found Successfully",
@@ -606,7 +607,7 @@ exports.updatedocumentdata = async (req, res) => {
       if (files.type !== "vedio") {
         for (const field in files) {
           if (files[field]?.[0]) {
-            const result = await moveFile(
+            const result = await Helper.moveFile(
               files[field][0],
               `documents`,
               transformedFields.id
@@ -616,7 +617,7 @@ exports.updatedocumentdata = async (req, res) => {
               return Helper.response("failed", result.error, null, res, 200);
             }
             transformedFields[field] = path.basename(result.filePath);
-            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+            transformedFields['size'] = `${(result.fileSize)}kb`;
             // transformedFields['doc_type']=(files[field]?.[0]['mimetype'].split('/'))[0]
           }
         }
@@ -750,9 +751,9 @@ exports.addmangedirectory = async (req, res) => {
         // Assign additional fields
         transformedFields["created_by"] = req.users.id;
         transformedFields["createdAt"] = new Date();
-        transformedFields["status"] = 1; // Use integer for status if database column is INTEGER
+        transformedFields["status"] = 1; 
 
-        console.log(transformedFields, "transformedFields");
+        // console.log(transformedFields, "transformedFields");
 
         // Validate email and phone uniqueness
         const [emailExists, phoneExists] = await Promise.all([
@@ -784,7 +785,7 @@ exports.addmangedirectory = async (req, res) => {
         const baseUploadDir = `documents`;
         for (const field in files) {
           if (files[field]?.[0]) {
-            const result = await moveFile(
+            const result = await Helper.moveFile(
               files[field][0],
               baseUploadDir,
               documentdt.id
@@ -797,7 +798,7 @@ exports.addmangedirectory = async (req, res) => {
 
             if (typeof result.filePath === "string") {
               transformedFields[field] = path.basename(result.filePath);
-              transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+              transformedFields['size'] = `${(result.fileSize)}kb`;
               // transformedFields['doc_type']=(files[field]?.[0]['mimetype'].split('/'))[0]
             }
           }
@@ -886,6 +887,11 @@ exports.updatemangedirectory = async (req, res) => {
           200
         );
       }
+      if(transformedFields['status']=='true'){
+        transformedFields['status']=1
+      }else if(transformedFields['status']=='false'){
+        transformedFields['status']=0
+      }
 
       const documentdt = await managedirectory.update(
         {
@@ -899,7 +905,7 @@ exports.updatemangedirectory = async (req, res) => {
       if (files.type !== "vedio") {
         for (const field in files) {
           if (files[field]?.[0]) {
-            const result = await moveFile(
+            const result = await Helper.moveFile(
               files[field][0],
               `documents`,
               transformedFields.id
@@ -909,7 +915,7 @@ exports.updatemangedirectory = async (req, res) => {
               return Helper.response("failed", result.error, null, res, 200);
             }
             transformedFields[field] = path.basename(result.filePath);
-            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+            transformedFields['size'] = `${(result.fileSize)}kb`;
           }
         }
         await managedirectory.update(transformedFields, {
@@ -955,7 +961,7 @@ exports.updatemangedirectory = async (req, res) => {
 
 exports.getmangementdirdata = async (req, res) => {
   try {
-    let lang = req.headers.language == undefined ? req.headers?.language : "en";
+    let lang = req.headers.Language == undefined ? req.headers?.Language : "en";
     const documentdata = await managedirectory.findAll({
       attributes: [
         "id",
@@ -1179,12 +1185,10 @@ exports.addvedio = async (req, res) => {
 
 exports.getvediodata = async (req, res) => {
   try {
-    console.log(req.body);
+    // console.log(req.body);
 
     let type = 'video';
-const documentdata = (
-  await document.findAll({
-    attributes: [
+const documentdata = (await document.findAll({attributes: [
       "id",
       [col("image_alt"), "video_description"],
       [col("image_title"), "video_title"],
@@ -1260,7 +1264,7 @@ exports.uploaddocument = async (req, res) => {
       if (files.type != "vedio") {
         for (const field in files) {
           if (files[field]?.[0]) {
-            const result = await moveFile(
+            const result = await Helper.moveFile(
               files[field][0],
               baseUploadDir,
               documentdt.id
@@ -1273,7 +1277,7 @@ exports.uploaddocument = async (req, res) => {
 
             if (typeof result.filePath === "string") {
               transformedFields[field] = path.basename(result.filePath);
-              transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+              transformedFields['size'] = `${result.fileSize}kb`;
             }
           }
         }
@@ -1346,13 +1350,17 @@ exports.updatevediodata = async (req, res) => {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);
     }
-   
+    if(obj["video_status"]==true){
+      obj["status"]=1
+    }else if (obj["video_status"]==false){
+      obj["status"]=0
+    }
     obj["img_title"]=obj?.video_title
             obj["banner_image"]=obj?.video_url
             obj["img_alt"]=obj?.video_description
             obj["hn_image_title"]=obj?.hn_video_title
             obj["hn_image_alt"]=obj?.hn_video_description
-            obj["status"]='true'
+            obj["status"]= obj["status"]
             obj["doc_type"]="video"
             obj["updated_by"]=req.users.id
       let createMenu = await document.update(obj, {
@@ -1414,12 +1422,6 @@ exports.updatevediostatus = async (req, res) => {
       return Helper.response("failed", validationError, null, res, 200);
     }
    
-    // obj["img_title"]=obj?.video_title
-    //         obj["banner_image"]=obj?.video_url
-    //         obj["img_alt"]=obj?.video_description
-    //         obj["hn_image_title"]=obj?.hn_video_title
-    //         obj["hn_image_alt"]=obj?.hn_video_description
-    //         obj["status"]='true'
             obj["doc_type"]="video"
             obj["updated_by"]=req.users.id
             if(obj.status=="true"){
@@ -1510,10 +1512,10 @@ exports.getmenudata = async (req, res) => {
           "page_url",
           "status",
         ],
-        order: [["id", "desc"]],
+        order: [["id", "asc"]],
       })
     ).map((item) => item.toJSON());
-    console.log(menudata);
+    // console.log(menudata);
     
     if (menudata.length > 0) {
       // Create a map for quick lookup
@@ -1560,6 +1562,7 @@ exports.getmenudata = async (req, res) => {
 exports.uploadpages=async(req,res)=>{
     const transaction = await sequelize.transaction();
     try {
+      
       const form = new formidable.IncomingForm();
       form.parse(req, async (err, fields, files) => {
         if (err)
@@ -1595,7 +1598,7 @@ exports.uploadpages=async(req,res)=>{
         if (files.type != "vedio") {
           for (const field in files) {
             if (files[field]?.[0]) {
-              const result = await moveFile(files[field][0],baseUploadDir,documentdt.id);
+              const result = await Helper.moveFile(files[field][0],baseUploadDir,documentdt.id);
   
               if (result.error) {
                 await transaction.rollback(); // Rollback transaction if file upload fails
@@ -1604,7 +1607,7 @@ exports.uploadpages=async(req,res)=>{
   
               if (typeof result.filePath === "string") {
                 transformedFields[field] = path.basename(result.filePath);
-                transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+                transformedFields['size'] = `${(result.fileSize)}kb`;
                 transformedFields['doc_type']=(files[field]?.[0]['mimetype'].split('/'))[0]
               }
             }
@@ -1666,6 +1669,8 @@ exports.getuploadpages=async(req,res)=>{
             "id",
             "image_alt",
             "hn_image_alt",
+            "title",
+            "hn_title",
             "document",
             "createdAt",
           ],
@@ -1763,20 +1768,10 @@ exports.deletepage=async(req,res)=>{
 
 exports.getfeedbacklist=async(req,res)=>{
   try {
-    const documentdata = (
-      await feedback.findAll({
-        attributes: [
-          "id",
-          "first_name",
-          "last_name",
-          "phone",
-          "email",
-          "feedback"
-        ],
-     
-        order: [["createdAt", "ASC"]],
+    const documentdata = await feedback.findAll({ attributes: ["id","name","address","phone","email","feedback"],
+      order: [["createdAt", "ASC"]],
       })
-    ).map((item) => item.toJSON());
+    
     if (documentdata.length > 0) {
   
       return Helper.response(

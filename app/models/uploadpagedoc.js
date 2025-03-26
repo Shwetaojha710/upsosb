@@ -19,6 +19,16 @@ const uploadpagedoc = sequelize.define(
       charset: "utf8mb4",
       collate: "utf8mb4_unicode_ci",
     },
+    title: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    hn_title: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      charset: "utf8mb4",
+      collate: "utf8mb4_unicode_ci",
+    },
     document: {
       type: DataTypes.STRING,
       allowNull: true,

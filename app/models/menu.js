@@ -18,7 +18,7 @@ const menu = sequelize.define("menu", {
   },
   slug: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   hn_menu: {
     type: DataTypes.STRING,

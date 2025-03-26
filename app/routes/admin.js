@@ -7,6 +7,7 @@ const { createhtmldata } = require("../controllers/public/public");
 const { addtender, getenderlist } = require("../controllers/admin/tender");
 const { addorganizational, georganizationallist, updateorganizational } = require("../controllers/admin/organizational");
 const { addnews, genewslist, updatenews } = require("../controllers/admin/news");
+const { addfaq, updatefaq ,gefaqlist,updatefaqstatus} = require("../controllers/admin/faq");
 router.post('/employee-reg',employeeregistration)
 router.post('/create-menu',Admin,createmenu)
 router.post('/get-menu-data',Admin,getmenudata)
@@ -35,6 +36,10 @@ router.post('/add-news',Admin,addnews)
 router.post('/get-news',Admin,genewslist)
 router.post('/update-news',Admin,updatenews)
 
+router.post('/add-faq',Admin,addfaq)
+router.post('/get-faq-list',Admin,gefaqlist)
+router.post('/update-faq',Admin,updatefaq)
+router.post('/update-faq-status',Admin,updatefaqstatus)
 
 router.post('/upload-pages',Admin,uploadpages)
 router.post('/get-pages',Admin,getuploadpages)

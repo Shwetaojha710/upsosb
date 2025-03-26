@@ -8,13 +8,13 @@ const feedback = sequelize.define("feedback", {
     autoIncrement: true,
   },
 
-  first_name: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false,
     charset: 'utf8mb4',
     collate: 'utf8mb4_unicode_ci',
   },
-  last_name: {
+  address: {
     type: DataTypes.STRING,
     allowNull: false,
     charset: 'utf8mb4',
