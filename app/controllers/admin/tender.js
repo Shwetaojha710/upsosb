@@ -102,94 +102,41 @@ exports.addtender = async (req, res) => {
       }
       transformedFields["created_by"] = req.users.id;
       transformedFields["createdAt"] = new Date();
-      const convertDataToArray = (data) => {
-        return [
-          {
-            description: data?.en_description,
-            bid_sub_start_date: data?.bid_sub_start_date,
-            tender_no: data?.tender_no,
-            bid_sub_end_date: data?.bid_sub_end_date,
-            document: data?.document,
-            document_type: data?.document_type,
-            document_kb:data?.document_kb,
-            work_nature:data?.en_work_nature,
-            status: "ACTIVE",
-            lang: "en",
-          },
-          {
-            description: data?.hn_description,
-            bid_sub_start_date: data?.bid_sub_start_date,
-            tender_no: data?.tender_no,
-            bid_sub_end_date: data?.bid_sub_end_date,
-            document: data?.document,
-            document_type: data?.document_type,
-            document_kb:data?.document_kb,
-            work_nature:data?.hn_work_nature,
-            status: "ACTIVE",
-            lang: "hn",
-          },
-        ];
-      };
+   
 
-      const result = convertDataToArray(transformedFields);
+    
 
-      const documentdt = await tender.bulkCreate(result, { transaction });
+      const documentdt = await tender.create(transformedFields, { transaction });
       const baseUploadDir = `documents`;
-      const uploadedFiles = [];
       for (const field in files) {
         if (files[field]?.[0]) {
-          const result = await moveFile(
+          const result = await Helper.moveFile(
             files[field][0],
             baseUploadDir,
-            documentdt[0].id
+            documentdt.id
           );
 
           if (result.error) {
-            await transaction.rollback();
+            await transaction.rollback(); // Rollback transaction if file upload fails
             return Helper.response("failed", result.error, null, res, 200);
           }
 
-          if (result.filePath) {
-            uploadedFiles.push(path.basename(result.filePath));
-
-            const copyResult = await copyFile(
-              result.filePath,
-              baseUploadDir,
-              documentdt[1].id
-            );
-
-            if (copyResult.error) {
-              await transaction.rollback();
-              return Helper.response(
-                "failed",
-                copyResult.error,
-                null,
-                res,
-                200
-              );
-            }
-
-            uploadedFiles.push(path.basename(copyResult.filePath));
+          if (typeof result.filePath === "string") {
+            transformedFields[field] = path.basename(result.filePath);
+            // transformedFields['size'] = `${(result.fileSize)}kb`;
           }
         }
       }
 
-      if (uploadedFiles.length) {
-        await tender.update(
-          { img: uploadedFiles[0] },
-          { where: { id: documentdt[0].id }, transaction }
-        );
-
-        await tender.update(
-          { img: uploadedFiles[1] },
-          { where: { id: documentdt[1].id }, transaction }
-        );
-      }
+      await tender.update(transformedFields, {
+        where: { id: documentdt.id },
+        transaction,
+      });
 
       await transaction.commit();
       return Helper.response(
         "success",
-        "Managedirectory Data Added successfully",
+        "Tender Added successfully",
         documentdt,
         res,
         200
@@ -321,7 +268,7 @@ exports.updatetender = async (req, res) => {
         action: "UPDATE",
         oldData: originalData.toJSON(),
         newData: updatedData.toJSON(),
-        changedBy: req.users.id,
+        createdBy: req.users.id,
       });
 
       return Helper.response(

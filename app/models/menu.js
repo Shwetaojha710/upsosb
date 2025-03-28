@@ -12,17 +12,41 @@ const menu = sequelize.define("menu", {
     allowNull: true,
     defaultValue:0
   },
-  en_name: {
+  menu: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  hn_name: {
+  slug: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  hn_menu: {
     type: DataTypes.STRING,
     allowNull: false,
     charset: 'utf8mb4',
     collate: 'utf8mb4_unicode_ci',
   },
-  type: {
+  page_title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  hn_page_title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  hn_description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
+  },
+  page_type: {
     type: DataTypes.STRING,
     allowNull: false,
   },
@@ -35,9 +59,9 @@ const menu = sequelize.define("menu", {
     allowNull: true,
   },
   status: {
-    type: DataTypes.STRING,
+    type: DataTypes.BOOLEAN,
     allowNull: false,
-    defaultValue: 'ACTIVE',
+    defaultValue: 1,
   },
   created_by: {
     type: DataTypes.UUID,
@@ -55,6 +79,7 @@ menu.afterCreate(async (menus,options)=>{
   await log.create({
       tableName: "menu",
       recordId: menus.id,
+      module:menus.mdoule,
       action: "CREATE",
       oldData: menus.toJSON(),
       newData: null,
@@ -68,6 +93,7 @@ menu.beforeUpdate(async (menus, options) => {
   await log.create({
       tableName: "menus",
       recordId: menus.id,
+      module:menus.mdoule,
       action: "UPDATE",
       oldData: originalData.toJSON(),
       newData: menus.toJSON(),
@@ -80,6 +106,7 @@ menu.beforeDestroy(async (menus, options) => {
   await log.create({
       tableName: "menus",
       recordId: menus.id,
+      module:menus.mdoule,
       action: "DELETE",
       oldData: menus.toJSON(),
       newData: null,

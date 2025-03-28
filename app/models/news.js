@@ -1,56 +1,58 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../connection/sequelize");
 const log = require('./log')
-const tender = sequelize.define("tender", {
+const news = sequelize.define("news", {
     id: {
         type: DataTypes.BIGINT,
         primaryKey: true,
         autoIncrement: true,
     },
-    tender_no: {
+    hn_heading: {
         type: DataTypes.STRING,
         allowNull: false,
         charset: "utf8mb4",
         collate: "utf8mb4_unicode_ci",
     },
-    en_description: {
+    heading: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    hn_title: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        charset: "utf8mb4",
+        collate: "utf8mb4_unicode_ci",
+    },
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    description: {
         type: DataTypes.STRING,
         allowNull: false,
     },
     hn_description: {
         type: DataTypes.STRING,
         allowNull: false,
-        charset: "utf8mb4",
-        collate: "utf8mb4_unicode_ci",
     },
-    bid_sub_start_date: {
+    doc_lang: {
         type: DataTypes.STRING,
-        allowNull: false,
-    },
-    bid_sub_end_date: {
-        type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
     },
     document: {
         type: DataTypes.STRING,
         allowNull: true,
     },
-    document_type: {
+    size: {
         type: DataTypes.STRING,
         allowNull: true,
     },
-    document_kb: {
+    doc_format: {
         type: DataTypes.STRING,
         allowNull: true,
     },
-    work_nature: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        charset: "utf8mb4",
-        collate: "utf8mb4_unicode_ci",
-    },
-    lang: {
-        type: DataTypes.STRING,
+    date: {
+        type: DataTypes.DATE,
         allowNull: true,
     },
     isarchives: {
@@ -68,48 +70,51 @@ const tender = sequelize.define("tender", {
         defaultValue: 1,
       },
 }, {
-    tableName: "tender",
+    tableName: "news",
     charset: "utf8mb4",
     collate: "utf8mb4_unicode_ci",
     timestamps: true,  // Automatically handles `createdAt` & `updatedAt`
 });
 
 
-tender.afterCreate(async (tenders,options)=>{
+news.afterCreate(async (newss,options)=>{
     await log.create({
-        tableName: "tender",
-        recordId: tenders.id,
+        tableName: "news",
+        recordId: newss.id,
+        module:newss?.module,
         action: "CREATE",
-        oldData: tenders.toJSON(),
+        oldData: newss.toJSON(),
         newData: null,
-        changedBy: options.tender || "System",
+        changedBy: options.news || "System",
     });
 })
 
 
-tender.beforeUpdate(async (tenders, options) => {
-    const originalData = await tender.findByPk(tenders.id);
+news.beforeUpdate(async (newss, options) => {
+    const originalData = await news.findByPk(newss.id);
     await log.create({
-        tableName: "tender",
-        recordId: tenders.id,
+        tableName: "news",
+        recordId: newss.id,
+        module:newss?.module,
         action: "UPDATE",
         oldData: originalData.toJSON(),
-        newData: tenders.toJSON(),
-        createdBy: tenders.id || "System",
+        newData: newss.toJSON(),
+        createdBy: newss.id || "System",
     });
 });
 
 
-tender.beforeDestroy(async (tenders, options) => {
+news.beforeDestroy(async (newss, options) => {
     await log.create({
-        tableName: "tender",
-        recordId: tenders.id,
+        tableName: "news",
+        recordId: newss.id,
+        module:newss?.module,
         action: "DELETE",
-        oldData: tenders.toJSON(),
+        oldData: newss.toJSON(),
         newData: null,
-        createdBy: tenders.id || "System",
+        createdBy: newss.id || "System",
     });
 });
 
 
-module.exports = tender
+module.exports = news

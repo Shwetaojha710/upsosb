@@ -85,7 +85,7 @@ exports.employeeregistration = async (req, res) => {
           action: "CREATE",
           oldData: JSON.stringify(data),
           newData: JSON.stringify(data),
-          changedBy: 1,
+          createdBy: 1,
         });
   
         return Helper.response("success", message, newUser, res, 200);

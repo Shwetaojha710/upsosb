@@ -82,6 +82,10 @@ const managedirectory = sequelize.define("managedirectory", {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    size: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     intercome: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -90,15 +94,19 @@ const managedirectory = sequelize.define("managedirectory", {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    order: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
     created_by: {
         type: DataTypes.BIGINT, 
         allowNull: false,
     },
     status: {
-        type: DataTypes.ENUM('ACTIVE', 'INACTIVE'),
+        type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: 'ACTIVE'
-    }
+        defaultValue: 1,
+      },
 }, {
     tableName: 'managedirectory',
     charset: 'utf8mb4',
@@ -111,6 +119,7 @@ managedirectory.afterCreate(async (managedirectorys,options)=>{
     await log.create({
         tableName: "managedirectory",
         recordId: managedirectorys.id,
+        module:managedirectorys?.module,
         action: "CREATE",
         oldData: managedirectorys.toJSON(),
         newData: null,
@@ -124,6 +133,7 @@ managedirectory.beforeUpdate(async (user, options) => {
     await log.create({
         tableName: "managedirectory",
         recordId: user.id,
+        module:user?.module,
         action: "UPDATE",
         oldData: originalData.toJSON(),
         newData: user.toJSON(),
@@ -136,6 +146,7 @@ managedirectory.beforeDestroy(async (user, options) => {
     await log.create({
         tableName: "managedirectory",
         recordId: user.id,
+        module:user?.module,
         action: "DELETE",
         oldData: user.toJSON(),
         newData: null,
