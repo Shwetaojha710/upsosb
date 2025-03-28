@@ -110,7 +110,7 @@ exports.addtender = async (req, res) => {
       const baseUploadDir = `documents`;
       for (const field in files) {
         if (files[field]?.[0]) {
-          const result = await moveFile(
+          const result = await Helper.moveFile(
             files[field][0],
             baseUploadDir,
             documentdt.id
@@ -123,6 +123,7 @@ exports.addtender = async (req, res) => {
 
           if (typeof result.filePath === "string") {
             transformedFields[field] = path.basename(result.filePath);
+            // transformedFields['size'] = `${(result.fileSize)}kb`;
           }
         }
       }

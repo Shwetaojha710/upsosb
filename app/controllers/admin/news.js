@@ -13,75 +13,61 @@ const managedirectory = require("../../models/managedirectory");
 const news = require("../../models/news");
 const Op=require('sequelize')
 // const log= require('../../models/log')
-async function moveFile(file, baseUploadDir, userId) {
-  try {
-    await fs.promises.mkdir(baseUploadDir, { recursive: true });
+// async function moveFile(file, baseUploadDir, userId) {
+//   try {
+//     await fs.promises.mkdir(baseUploadDir, { recursive: true });
 
-    const buffer = await fs.promises.readFile(file.filepath);
-    const detectedType = await fileType.fromBuffer(buffer);
-    const allowedTypes = {
-      "image/png": "png",
-      "image/jpeg": "jpg",
-      "image/jpg": "jpg",
-      "video/mp4": "mp4",
-      "text/plain": "txt",
-      "application/pdf": "pdf",
-      "application/msword": "doc",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        "docx",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        "docx",
-      "application/vnd.ms-excel": ".xls",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-        ".xlsx",
-    };
+//     const buffer = await fs.promises.readFile(file.filepath);
+//     const detectedType = await fileType.fromBuffer(buffer);
+//     const allowedTypes = {
+//       "image/png": "png",
+//       "image/jpeg": "jpg",
+//       "image/jpg": "jpg",
+//       "video/mp4": "mp4",
+//       "text/plain": "txt",
+//       "application/pdf": "pdf",
+//       "application/msword": "doc",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+//         "docx",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+//         "docx",
+//       "application/vnd.ms-excel": ".xls",
+//       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+//         ".xlsx",
+//     };
 
-    if (!detectedType || !allowedTypes[detectedType.mime]) {
-      return { error: `Invalid file type.` };
-    }
+//     if (!detectedType || !allowedTypes[detectedType.mime]) {
+//       return { error: `Invalid file type.` };
+//     }
 
-    const correctExtension = allowedTypes[detectedType.mime];
-    if (
-      path.extname(file.originalFilename).slice(1).toLocaleLowerCase() !==
-      correctExtension
-    ) {
-      return { error: `File extension does not match file content.` };
-    }
+//     const correctExtension = allowedTypes[detectedType.mime];
+//     if (
+//       path.extname(file.originalFilename).slice(1).toLocaleLowerCase() !==
+//       correctExtension
+//     ) {
+//       return { error: `File extension does not match file content.` };
+//     }
 
-    const filePath = path.join(
-      baseUploadDir,
-      `${userId}_${Date.now()}.${correctExtension}`
-    );
-    await fs.promises.rename(file.filepath, filePath);
-  // Get the file size using fs.promises.stat
-    const stats = await fs.promises.stat(filePath);
-    const fileSizeInBytes = stats.size;
+//     const filePath = path.join(
+//       baseUploadDir,
+//       `${userId}_${Date.now()}.${correctExtension}`
+//     );
+//     await fs.promises.rename(file.filepath, filePath);
+//   // Get the file size using fs.promises.stat
+//     const stats = await fs.promises.stat(filePath);
+//     const fileSizeInBytes = stats.size;
 
-    // Convert size from bytes to kilobytes (KB)
-    const fileSize = (fileSizeInBytes / 1024).toFixed(0); // Rounded to 2 decimal places
+//     // Convert size from bytes to kilobytes (KB)
+//     const fileSize = (fileSizeInBytes / 1024).toFixed(0); // Rounded to 2 decimal places
 
 
-     return { filePath,fileSize };
-  } catch (error) {
-    console.error(`File move error:`, error.message);
-    return { error: error.message };
-  }
-}
-const copyFile = async (sourcePath, destFolder, userId) => {
-  const folderPath = path.join(process.cwd(), destFolder);
-  await fs.promises.mkdir(folderPath, { recursive: true });
+//      return { filePath,fileSize };
+//   } catch (error) {
+//     console.error(`File move error:`, error.message);
+//     return { error: error.message };
+//   }
+// }
 
-  const uniqueName = `${userId}_${Date.now()}_${path.basename(sourcePath)}`;
-  const destinationPath = path.join(folderPath, uniqueName);
-
-  try {
-    await fs.promises.copyFile(sourcePath, destinationPath); // ✅ Copy file
-    return { filePath: destinationPath };
-  } catch (err) {
-    console.error(`Error copying file:`, err);
-    return { error: err.message };
-  }
-};
 
 exports.addnews = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -138,7 +124,7 @@ exports.addnews = async (req, res) => {
       const baseUploadDir = `documents`;
       for (const field in files) {
         if (files[field]?.[0]) {
-          const result = await moveFile(
+          const result = await Helper.moveFile(
             files[field][0],
             baseUploadDir,
             documentdt.id
@@ -151,7 +137,7 @@ exports.addnews = async (req, res) => {
 
           if (typeof result.filePath === "string") {
             transformedFields[field] = path.basename(result.filePath);
-            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+            transformedFields['size'] = `${(result.fileSize)}kb`;
           }
         }
       }
@@ -202,7 +188,6 @@ exports.addnews = async (req, res) => {
 
 exports.genewslist = async (req, res) => {
   try {
-    let lang = req.headers?.lang == undefined ? req.headers?.lang : "en";
     const documentdata = (
       await news.findAll({
         attributes: [
@@ -316,13 +301,13 @@ exports.updatenews = async (req, res) => {
       if (files.type !== "vedio") {
         for (const field in files) {
           if (files[field]?.[0]) {
-            const result = await moveFile(files[field][0],`documents`,transformedFields.id);
+            const result = await Helper.moveFile(files[field][0],`documents`,transformedFields.id);
             if (result.error) {
               await transaction.rollback();
               return Helper.response("failed", result.error, null, res, 200);
             }
             transformedFields[field] = path.basename(result.filePath);
-            transformedFields['size'] = `${path.basename(result.fileSize)}kb`;
+            transformedFields['size'] = `${(result.fileSize)}kb`;
           }
         }
         await news.update(transformedFields, {

@@ -149,7 +149,7 @@ Helper.moveFile = async (file, baseUploadDir, userId) => {
   
       const allowedTypes = {
         "image/png": "png",
-        "image/jpeg": "jpg", // Ensure JPEG maps to "jpg"
+        "image/jpeg": "jpeg", // Ensure JPEG maps to "jpg"
         "video/mp4": "mp4",
         "text/plain": "txt",
         "application/pdf": "pdf",

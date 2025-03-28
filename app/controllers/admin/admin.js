@@ -151,10 +151,6 @@ exports.createmenu = async (req, res) => {
            await transaction.rollback(); // Rollback if menu already exists
       return Helper.response("failed", "Something Wrong at the time of creation ", null, res, 200);
       }
-    // } else {
-    //   await transaction.rollback(); // Rollback if menu already exists
-    //   return Helper.response("failed", "Menu already exists", null, res, 200);
-    // }
   } catch (error) {
     await transaction.rollback(); // Rollback on error
     console.error("Error creating menu:", error);
@@ -165,11 +161,14 @@ exports.createmenu = async (req, res) => {
 
 exports.menudata = async (req, res) => {
   try {
-    const lang = req.headers?.Language === "hn" ? "hn_menu" : "menu";
+    const lang = req.headers.language  == "hn" ?"hn_menu" :"menu";
     const menudata = (
       await menu.findAll({
         where: {
           status: true,
+          page_type: {
+            [Op.ne]: 'link'
+          }
         },
         attributes: [
           "id",
@@ -182,6 +181,8 @@ exports.menudata = async (req, res) => {
         order: [["id", "ASC"]],
       })
     ).map((item) => item.toJSON());
+    
+    // console.log(menudata,"menudattaa111")
     if (menudata.length > 0) {
 
        // Create a map for quick lookup
@@ -425,6 +426,7 @@ exports.updatemenustatus = async (req, res) => {
 
 exports.getdocument = async (req, res) => {
   try {
+    console.log(req.headers,"999")
     const documentdata = (
       await document.findAll({
         attributes: [
@@ -521,6 +523,7 @@ exports.getgallerydocument = async (req, res) => {
 
 exports.gethomebannerImage = async (req, res) => {
   try {
+    console.log(req.headers,"999")
     const documentdata = (
       await document.findAll({
         attributes: ["id", "image_alt", "order", "banner_image", "status"],
@@ -536,13 +539,15 @@ exports.gethomebannerImage = async (req, res) => {
           }
           return a.order - b.order; // Sort by order
         });
-      let data = sortedData.map((item) => {
+      let data =[]
+       sortedData.map((item) => {
         data.push({
           image_alt: item.image_alt,
           banner_image: item.banner_image,
         });
       });
 
+      console.log(data,"333")
       return Helper.response(
         "success",
         "data found Successfully",
@@ -961,7 +966,7 @@ exports.updatemangedirectory = async (req, res) => {
 
 exports.getmangementdirdata = async (req, res) => {
   try {
-    let lang = req.headers.Language == undefined ? req.headers?.Language : "en";
+    let lang = req.headers.language == undefined ? req.headers?.Language : "en";
     const documentdata = await managedirectory.findAll({
       attributes: [
         "id",
