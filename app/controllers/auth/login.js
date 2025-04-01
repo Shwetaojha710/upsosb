@@ -73,7 +73,7 @@ exports.login = async (req, res) => {
             loginId: usersData.loginId,
             token: usersData.jwt_token,
             role: usersData.role,
-            base_url: process.env.BASE_URL_IMG,
+            base_url: process.env.BASE_URL,
           },
           res,
           200
