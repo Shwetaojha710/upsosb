@@ -13,6 +13,9 @@ const faq = require("../../models/faq");
 const document = require("../../models/document");
 const { col } = require("sequelize");
 const { Op } = require("sequelize");
+const news =require('../../models/news')
+const organizational = require('../../models/organizational');
+const managedirectory = require("../../models/managedirectory");
 exports.createhtmldata = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
@@ -33,7 +36,7 @@ exports.createhtmldata = async (req, res) => {
     };
 
     // **Apply Validation**
-    const validationError = validateFields(obj);
+    const validationError = Helper.validateFields(obj);
     if (validationError) {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);
@@ -405,7 +408,14 @@ exports.createfeedback = async (req, res) => {
       typeof obj.feedback !== "string" ||
       obj.feedback.length < 5
     ) {
-      return "Error: Feedback must be a string with at least 5 characters.";
+      return Helper.response(
+        "failed",
+        "Feedback must be a string with at least 5 characters.",
+        null,
+        res,
+        200
+      );
+      
     }
     const result = await Helper.validateFeedback(obj);
     if (result.error) {
@@ -419,7 +429,7 @@ exports.createfeedback = async (req, res) => {
       );
     }
 
-    const validationError = await validateFields(obj);
+    const validationError =  Helper.validateFields(obj);
     if (validationError) {
       await transaction.rollback(); // Rollback if validation fails
       return Helper.response("failed", validationError, null, res, 200);
@@ -732,16 +742,20 @@ exports.getpublicvideodocument = async (req, res) => {
 
 exports.gepublicnewsdata = async (req, res) => {
   try {
-    const lang = req.headers?.language === "hn" ? "hn" : "en";
-    const languageColumns = lang === "hn" ? { heading: "hn_heading",title: "hn_title",description: "hn_description",}: { heading: "heading", title: "title", description: "description" };
+    const lang = req.headers?.language == "hn" ? "hn" : "en";
+    const languageColumns =
+      lang === "hn"
+        ? { heading: "hn_heading", title: "hn_title", description: "hn_description" }
+        : { heading: "heading", title: "title", description: "description" };
+
+    console.log("Language Columns:", languageColumns); // Debugging
+
     const documentdata = await news.findAll({
       attributes: [
         "id",
-        ,
         [col(languageColumns.heading), "heading"],
         [col(languageColumns.title), "title"],
         [col(languageColumns.description), "description"],
-        "title",
         "size",
         "doc_format",
         "date",
@@ -750,31 +764,49 @@ exports.gepublicnewsdata = async (req, res) => {
         "status",
         "createdAt",
       ],
-
+      where: {
+        status: 1,
+      },
       order: [["createdAt", "desc"]],
     });
 
+    let  bread_crumb
+    if(lang=="en"){
+    
+      bread_crumb=  [
+        {
+          "label": "News",
+          "page_title": "News",
+          "page_url": "/news",
+          "slug": "news",
+         
+        },
+      ]
+
+    }else if(lang=="hn"){
+      bread_crumb=  [
+        {
+          "label": "समाचार",
+          "page_title": "समाचार",
+          "page_url": "/समाचार",
+          "slug": "समाचार",
+      
+        },
+      ]
+    }
+
+    let obj = {};
+    obj["data"] = documentdata;
+    obj["bread_crumb"] = bread_crumb;
+
     if (documentdata.length > 0) {
-      return Helper.response(
-        "success",
-        "data found Successfully",
-        documentdata,
-        res,
-        200
-      );
+      return Helper.response("success", "Data found successfully", obj, res, 200);
     } else {
       return Helper.response("failed", "No data found", null, res, 200);
     }
   } catch (error) {
     console.log(error);
-
-    return Helper.response(
-      "failed",
-      error.message || "Something went wrong",
-      {},
-      res,
-      200
-    );
+    return Helper.response("failed", error.message || "Something went wrong", {}, res, 200);
   }
 };
 
@@ -871,5 +903,160 @@ exports.getlinkmenudata = async (req, res) => {
   } catch (error) {
     console.error("Error creating menu:", error);
     return Helper.response("failed", error?.errors?.[0].message, {}, res, 200);
+  }
+};
+
+exports.getpublicmangementdirdata = async (req, res) => {
+  try {
+    const lang = req.headers?.language == "hn" ? "hn" : "en";
+    const languageColumns = lang === "hn" ? { first_name: "hn_first_name",last_name: "hn_last_name",designation: "hn_designation",}: { first_name: "en_first_name", last_name: "en_last_name", designation: "en_designation" };
+
+    const documentdata = await managedirectory.findAll({
+      attributes: [
+        "id",
+        [col(languageColumns.first_name), "first_name"],
+        [col(languageColumns.last_name), "last_name"],
+        [col(languageColumns.designation), "designation"],
+        "phone",
+        "email",
+        "order",
+        "img",
+        "status",
+        "createdAt",
+      ],
+      where: {
+        status: true,
+      },
+      order: [["createdAt", "ASC"]],
+    });
+   
+
+    
+    let  bread_crumb
+    if(lang=="en"){
+    
+      bread_crumb=  [
+        {
+          "label": "Management Directory",
+          "page_title": "Management Directory",
+          "page_url": "/management-directory",
+          "slug": "management-directory",
+         
+        },
+      ]
+
+    }else if(lang=="hn"){
+      bread_crumb=  [
+        {
+          "label": "प्रबंधन निर्देशिका",
+          "page_title": "प्रबंधन निर्देशिका",
+          "page_url": "/प्रबंधन निर्देशिका",
+          "slug": "प्रबंधन निर्देशिका",
+      
+        },
+      ]
+    }
+
+    let obj = {};
+    obj["data"] = documentdata;
+    obj["bread_crumb"] = bread_crumb;
+
+    if (documentdata.length > 0) {
+      return Helper.response(
+        "success",
+        "data found Successfully",
+        obj,
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    console.log(error);
+
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
+  }
+};
+
+exports.getpublicorganizationaldata = async (req, res) => {
+  try {
+    let lang = req.headers.language == undefined ? req.headers?.Language : "en";
+    const languageColumns = lang === "hn" ? { heading: "hn_heading",title: "hn_title",description: "hn_description",}: { heading: "heading", title: "title", description: "description" };
+
+    const documentdata = (
+      await organizational.findAll({
+        attributes: [
+          "id",
+          [col(languageColumns.heading), "heading"],
+          [col(languageColumns.title), "title"],
+          [col(languageColumns.description), "description"],
+          "status",
+          "createdAt",
+        ],
+        where: {
+          status: true,
+        },
+      
+        order: [["createdAt", "ASC"]],
+      })
+    ).map((item) => item.toJSON());
+    
+    let  bread_crumb
+    if(lang=="en"){
+    
+      bread_crumb=  [
+        {
+          "label": "Organizational Structure",
+          "page_title": "Organizational Structure",
+          "page_url": "/organizational-structure",
+          "slug": "organizational-structure",
+         
+        },
+      ]
+
+    }else if(lang=="hn"){
+      bread_crumb=  [
+        {
+          "label": "संगठनात्मक संरचना",
+          "page_title": "संगठनात्मक संरचना",
+          "page_url": "/संगठनात्मक संरचना",
+          "slug": "संगठनात्मक संरचना",
+      
+        },
+      ]
+    }
+
+    let obj = {};
+    obj["data"] = documentdata;
+    obj["bread_crumb"] = bread_crumb;
+
+    if (documentdata.length > 0) {
+      return Helper.response(
+        "success",
+        "Data found Successfully",
+         documentdata ,
+        res,
+        200
+      );
+    } else {
+      return Helper.response("failed", "No data found", null, res, 200);
+    }
+  } catch (error) {
+    console.log(error);
+
+    return Helper.response(
+      "failed",
+      error.message || "Something went wrong",
+      {},
+      res,
+      200
+    );
   }
 };

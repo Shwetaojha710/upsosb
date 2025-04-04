@@ -4,7 +4,12 @@ const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const mime = require("mime-types");
+const crypto = require("crypto")
 const fileType = require("file-type");
+const algorithm = "aes-256-cbc"; // Encryption Algorithm
+const iv = crypto.randomBytes(16);
+const secretKey = crypto.randomBytes(32);
+
 require("dotenv").config();
 Helper.response = (status, message, data = [], res, statusCode) => {
   res.status(statusCode).json({
@@ -79,12 +84,68 @@ Helper.validateFeedback = (data) => {
     return "Error: Feedback cannot contain special characters.";
   }
 
-  if (/[^a-zA-Z0-9\s()\p{Script=Devanagari},.।]/u.test(data.address)) {
+  if (/[^a-zA-Z0-9\s().\u0900-\u097F।]/u.test(data.address)) {
     return { error: "Error: Address cannot contain special characters." };
-    //   return "Error: Feedback cannot contain special characters.";
   }
   return "Feedback is valid.";
 };
+
+
+Helper.validateFields = (data) => {
+  const specialCharRegex = /[!@#$%^&*()_+={}\[\]:;"'<>,?\\|`~]/; // Allows ".", "-", and "/"
+  const escapeCharRegex = /\\/; // Detects backslashes
+  const scriptTagRegex = /<.*?>/; // Detects any HTML tags
+  const urlRegex = /^(https?:\/\/)?([\w\d\-]+\.)+[\w]{2,}(\/[\w\d\-._~:/?#[\]@!$&'()*+,;=]*)?$/i; // URL validation
+
+  for (const key in data) {
+
+    if (key === "video_url") {
+      if (!urlRegex.test(data[key])) {
+        return `Error: ${key} must be a valid URL!`;
+      }
+      continue; // Skip other validations for video URLs
+    }
+
+    if(key=="address"){
+      if (/[^a-zA-Z0-9\s().\u0900-\u097F।]/u.test(data[key])) {
+        return { error: "Error: Address cannot contain special characters." };
+      }
+    }
+  
+    // if(key=="description" || key=="hn_description") {
+    //   if (/[^a-zA-Z0-9\s()\p{Script=Devanagari},.।]/u.test(data.key)) {
+    //     return "Error: Feedback cannot contain special characters.";
+    //   }
+    // }
+   
+
+    if (key !== "email" && key !== "address" && key !== "module" && key !== "date") {
+      if (typeof data[key] === "string") {
+        data[key] = data[key].trim(); // Trim spaces before validation
+
+        if (data[key] === "" || data[key] === null || data[key] === undefined) {
+          return `Error: ${key} cannot be empty!`;
+        }
+
+        if (specialCharRegex.test(data[key])) {
+          return `Error: ${key} contains special characters!`;
+        }
+
+        if (escapeCharRegex.test(data[key])) {
+          return `Error: ${key} contains escape characters!`;
+        }
+
+        if (scriptTagRegex.test(data[key])) {
+          return `Error: ${key} contains HTML tags, which are not allowed!`;
+        }
+      }
+    }
+  }
+  return null; // No errors
+};
+
+
+
 
 // Helper.moveFile = async (file, baseUploadDir, userId) => {
 //   try {
@@ -197,5 +258,39 @@ Helper.moveFile = async (file, baseUploadDir, userId) => {
       return { error: error.message };
     }
   };
+
+
+
+ /**
+ * Encrypt Data
+ */
+
+ Helper.encrypt = (text) => {
+  if (!text) {
+    throw new Error("Text to encrypt is undefined or null!");
+  }
+
+  if (Array.isArray(text)) {
+    console.error("Error: encrypt() received an array instead of a string.");
+    text = JSON.stringify(text); // Convert array to string
+  }
+
+  const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey), iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+
+  return { iv: iv.toString("hex"), encryptedData: encrypted };
+};
+
+/**
+ * Decrypt Data
+ */
+Helper.decrypt=(encryptedText, ivHex)=>  {
+  const decipher = crypto.createDecipheriv(algorithm, secretKey, Buffer.from(ivHex, "hex"));
+  let decrypted = decipher.update(encryptedText, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
+ 
 
 module.exports = Helper;

@@ -11,12 +11,14 @@ const otp = require("../../models/otps");
 const moment = require("moment");
 const log = require("../../models/log");
 const { Op } = require("sequelize");
-
+const CryptoJS = require("crypto-js");
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const data = req.body
-
+  
+     const a = CryptoJS.AES.decrypt(req.body.zero, process.env.SECRET_KEY);
+     const b = JSON.parse(a.toString(CryptoJS.enc.Utf8));
+     const { email, password } = b;
+     const data = b
     if (!email || !password) {
       return Helper.response(
         "failed",
@@ -61,10 +63,8 @@ exports.login = async (req, res) => {
             changedBy: req.users?.id || null, // Handle cases where req.users.id might be undefined
           });
           
-        return Helper.response(
-          "success",
-          "You have logged in successfully!",
-          {
+
+          const data1 ={
             id: usersData.id,
             first_name: usersData.first_name,
             last_name: usersData.last_name,
@@ -74,7 +74,14 @@ exports.login = async (req, res) => {
             token: usersData.jwt_token,
             role: usersData.role,
             base_url: process.env.BASE_URL,
-          },
+          }
+          const responseString = JSON.stringify(data1);
+                const encryptedResponse = Helper.encryptPassword(responseString);
+
+        return Helper.response(
+          "success",
+          "You have logged in successfully!",
+          encryptedResponse,
           res,
           200
         );

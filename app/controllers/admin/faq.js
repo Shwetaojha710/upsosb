@@ -27,7 +27,7 @@ exports.addfaq = async (req, res) => {
       return null; // No errors
     };
     // **Apply Validation**
-    const validationError = validateFields(obj);
+    const validationError = Helper.validateFields(obj);
     if (validationError) {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);
@@ -129,7 +129,7 @@ exports.updatefaq = async (req, res) => {
       return null;
     };
 
-    const validationError = validateFields(obj);
+    const validationError = Helper.validateFields(obj);
     if (validationError) {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);
@@ -204,7 +204,7 @@ exports.updatefaqstatus = async (req, res) => {
       return null;
     };
 
-    const validationError = validateFields(obj);
+    const validationError = Helper.validateFields(obj);
     if (validationError) {
       await transaction.rollback();
       return Helper.response("failed", validationError, null, res, 200);

@@ -89,7 +89,11 @@ exports.addtender = async (req, res) => {
       const emptyField = Object.entries(transformedFields).find(
         ([key, value]) => !value
       );
-
+ const validationError = Helper.validateFields(transformedFields);
+       if (validationError) {
+            await transaction.rollback();
+            return Helper.response("failed", validationError, null, res, 200);
+          }
       if (emptyField) {
         await transaction.rollback();
         return Helper.response(
@@ -227,6 +231,11 @@ exports.updatetender = async (req, res) => {
           200
         );
       }
+       const validationError = Helper.validateFields(transformedFields);
+             if (validationError) {
+                  await transaction.rollback();
+                  return Helper.response("failed", validationError, null, res, 200);
+                }
 
       const documentdt = await tender.update(
         {

@@ -97,6 +97,11 @@ exports.addnews = async (req, res) => {
           200
         );
       }
+      const validationError = Helper.validateFields(transformedFields);
+       if (validationError) {
+            await transaction.rollback();
+            return Helper.response("failed", validationError, null, res, 200);
+          }
       transformedFields["created_by"] = req.users.id;
       transformedFields["createdAt"] = new Date();
       console.log(transformedFields, "transformfieldss");
@@ -267,6 +272,11 @@ exports.updatenews = async (req, res) => {
           200
         );
       }
+      const validationError = Helper.validateFields(transformedFields);
+      if (validationError) {
+           await transaction.rollback();
+           return Helper.response("failed", validationError, null, res, 200);
+         }
 
       const data = await news.count({
         where: {

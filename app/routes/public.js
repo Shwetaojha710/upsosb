@@ -1,6 +1,6 @@
 const express = require("express");
 const { menudata, gethomebannerImage, getdocument } = require("../controllers/admin/admin");
-const { gethtmldata, getpublicgallerydocument, getpublicvideodocument,getpublicslugdata, createfeedback ,gepublicfaqlist, sitemapdata, gepublicnewslist, gepublicnewsdata, getpublichomebannerImage, getlinkmenudata} = require("../controllers/public/public");
+const { gethtmldata, getpublicgallerydocument,getpublicorganizationaldata, getpublicvideodocument,getpublicslugdata, createfeedback ,gepublicfaqlist, sitemapdata, gepublicnewslist, gepublicnewsdata, getpublichomebannerImage, getlinkmenudata, getpublicmangementdirdata, getpublicnewsdata} = require("../controllers/public/public");
 const router = express.Router();
 
 
@@ -18,5 +18,7 @@ router.post('/create-feedback',createfeedback)
 router.post('/get-public-faq-list',gepublicfaqlist)
 router.post('/get-site-map-data',sitemapdata)
 router.post('/get-link-menu-data',getlinkmenudata)
+router.post('/get-public-management-dir-data',getpublicmangementdirdata)
+router.post('/get-public-organizational-data',getpublicorganizationaldata)
 
 module.exports = router
